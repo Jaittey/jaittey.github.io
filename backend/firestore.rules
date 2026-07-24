@@ -1,0 +1,65 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == "jaeitte@gmail.com";
+    }
+
+    function hasRequiredFields(required) {
+      return request.resource.data.keys().hasAll(required);
+    }
+
+    match /customers/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['name', 'createdAt', 'updatedAt']);
+    }
+
+    match /products/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['name', 'quantity', 'price', 'threshold', 'createdAt', 'updatedAt'])
+        && request.resource.data.quantity is number
+        && request.resource.data.quantity >= 0
+        && request.resource.data.price is number
+        && request.resource.data.price >= 0;
+    }
+
+    match /invoices/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['invoiceNumber', 'customerName', 'items', 'total', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.items is list
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0;
+    }
+
+    match /quotes/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['quoteNumber', 'customerName', 'items', 'total', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.items is list
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0;
+    }
+
+    match /expenses/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['description', 'amount', 'date', 'createdAt', 'updatedAt'])
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0;
+    }
+
+    match /settings/{id} {
+      allow read, write: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
