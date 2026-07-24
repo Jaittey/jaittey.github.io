@@ -2,7 +2,44 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { currency, dateText } from '../utils/format';
 
-export function createBusinessPdf(kind, record, settings) {
+let paidStampDataUrlPromise = null;
+
+function loadImageAsDataUrl(url) {
+  if (!paidStampDataUrlPromise) {
+    paidStampDataUrlPromise = fetch(url)
+      .then((response) => {
+        if (!response.ok) throw new Error('Unable to load the PAID stamp image.');
+        return response.blob();
+      })
+      .then((blob) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Unable to read the PAID stamp image.'));
+        reader.readAsDataURL(blob);
+      }));
+  }
+
+  return paidStampDataUrlPromise;
+}
+
+async function addPaidStamp(doc, record, finalY) {
+  if (String(record.status || '').toUpperCase() !== 'PAID') return;
+
+  try {
+    const stampUrl = `${import.meta.env.BASE_URL}images/DF7_PAID.png`;
+    const stamp = await loadImageAsDataUrl(stampUrl);
+
+    // Keep the stamp below the item table and away from the total.
+    const stampSize = 48;
+    const stampY = Math.min(Math.max(finalY + 8, 178), 225);
+    doc.addImage(stamp, 'PNG', 16, stampY, stampSize, stampSize, 'df7-paid-stamp', 'FAST', -8);
+  } catch (error) {
+    // The invoice must still be generated if the optional image cannot load.
+    console.warn(error);
+  }
+}
+
+export async function createBusinessPdf(kind, record, settings) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const isInvoice = kind === 'invoice';
   const title = isInvoice ? 'INVOICE' : 'QUOTATION';
@@ -51,13 +88,21 @@ export function createBusinessPdf(kind, record, settings) {
     theme: 'grid',
     headStyles: { fillColor: [43, 143, 110], textColor: 255 },
     styles: { fontSize: 9, cellPadding: 3.2 },
-    columnStyles: { 0: { cellWidth: 88 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+    columnStyles: {
+      0: { cellWidth: 88 },
+      1: { halign: 'right' },
+      2: { halign: 'right' },
+      3: { halign: 'right' },
+    },
   });
 
   const finalY = doc.lastAutoTable.finalY + 10;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text(`TOTAL: ${currency(record.total, code)}`, 194, finalY, { align: 'right' });
+
+  if (isInvoice) await addPaidStamp(doc, record, finalY);
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 105, 115);
