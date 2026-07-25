@@ -3,31 +3,51 @@ import autoTable from 'jspdf-autotable';
 import { currency, dateText } from '../utils/format';
 
 let paidStampDataUrlPromise = null;
+let companyLogoDataUrlPromise = null;
 
-function loadImageAsDataUrl(url) {
+function fetchImageAsDataUrl(url, errorMessage) {
+  return fetch(url)
+    .then((response) => {
+      if (!response.ok) throw new Error(errorMessage);
+      return response.blob();
+    })
+    .then((blob) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error(errorMessage));
+      reader.readAsDataURL(blob);
+    }));
+}
+
+function loadPaidStampAsDataUrl() {
   if (!paidStampDataUrlPromise) {
-    paidStampDataUrlPromise = fetch(url)
-      .then((response) => {
-        if (!response.ok) throw new Error('Unable to load the PAID stamp image.');
-        return response.blob();
-      })
-      .then((blob) => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Unable to read the PAID stamp image.'));
-        reader.readAsDataURL(blob);
-      }));
+    const url = `${import.meta.env.BASE_URL}images/DF7_PAID.png`;
+    paidStampDataUrlPromise = fetchImageAsDataUrl(
+      url,
+      'Unable to load the PAID stamp image.',
+    );
   }
 
   return paidStampDataUrlPromise;
+}
+
+function loadCompanyLogoAsDataUrl() {
+  if (!companyLogoDataUrlPromise) {
+    const url = `${import.meta.env.BASE_URL}images/DF7_Logo.png`;
+    companyLogoDataUrlPromise = fetchImageAsDataUrl(
+      url,
+      'Unable to load the company logo.',
+    );
+  }
+
+  return companyLogoDataUrlPromise;
 }
 
 async function addPaidStamp(doc, record, finalY) {
   if (String(record.status || '').toUpperCase() !== 'PAID') return;
 
   try {
-    const stampUrl = `${import.meta.env.BASE_URL}images/DF7_PAID.png`;
-    const stamp = await loadImageAsDataUrl(stampUrl);
+    const stamp = await loadPaidStampAsDataUrl();
 
     // Keep the stamp below the item table and away from the total.
     const stampSize = 48;
@@ -36,6 +56,30 @@ async function addPaidStamp(doc, record, finalY) {
   } catch (error) {
     // The invoice must still be generated if the optional image cannot load.
     console.warn(error);
+  }
+}
+
+async function addCompanyLogo(doc) {
+  try {
+    const logo = await loadCompanyLogoAsDataUrl();
+
+    // The source logo is wide, so this keeps its natural proportions.
+    doc.addImage(
+      logo,
+      'PNG',
+      14,
+      5,
+      52,
+      30,
+      'df7-company-logo',
+      'FAST',
+    );
+
+    return true;
+  } catch (error) {
+    // PDF generation still works if the optional logo cannot load.
+    console.warn(error);
+    return false;
   }
 }
 
@@ -48,12 +92,19 @@ export async function createBusinessPdf(kind, record, settings) {
 
   doc.setFillColor(8, 11, 16);
   doc.rect(0, 0, 210, 42, 'F');
-  doc.setTextColor(93, 217, 168);
-  doc.setFontSize(23);
-  doc.setFont('helvetica', 'bold');
-  doc.text(settings.businessName || 'DF7', 16, 18);
+
+  const logoAdded = await addCompanyLogo(doc);
+
+  if (!logoAdded) {
+    doc.setTextColor(93, 217, 168);
+    doc.setFontSize(23);
+    doc.setFont('helvetica', 'bold');
+    doc.text(settings.businessName || 'DF7', 16, 18);
+  }
+
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
   doc.text(title, 194, 18, { align: 'right' });
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');

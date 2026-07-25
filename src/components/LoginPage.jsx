@@ -6,7 +6,13 @@ export default function LoginPage({ login, error, loading }) {
       <div className="login-orb orb-one" />
       <div className="login-orb orb-two" />
       <section className="login-card">
-        <div className="brand-mark">DF7</div>
+        <div className="login-logo-wrap">
+          <img
+            className="login-company-logo"
+            src={`${import.meta.env.BASE_URL}images/DF7_Logo.png`}
+            alt="DF7 — Dhinash Family 7"
+          />
+        </div>
         <p className="eyebrow">PRIVATE BUSINESS WORKSPACE</p>
         <h1>Your business, available anywhere.</h1>
         <p className="login-copy">Invoices, quotations, inventory, expenses and customers protected by your Google account.</p>

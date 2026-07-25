@@ -12,7 +12,17 @@ export default function AppShell({ page, setPage, user, logout, driveConnected, 
   return (
     <div className="app-layout">
       <aside className="sidebar">
-        <div className="sidebar-brand"><div className="brand-symbol">D7</div><div><strong>DF7</strong><span>{businessName}</span></div></div>
+        <div className="sidebar-brand">
+          <img
+            className="sidebar-company-logo"
+            src={`${import.meta.env.BASE_URL}images/DF7_Logo.png`}
+            alt="DF7"
+          />
+          <div>
+            <strong>DF7</strong>
+            <span>{businessName}</span>
+          </div>
+        </div>
         <nav className="sidebar-nav">
           {nav.map(([id, icon, label]) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><span>{icon}</span>{label}</button>)}
         </nav>
@@ -24,7 +34,7 @@ export default function AppShell({ page, setPage, user, logout, driveConnected, 
           <div><p className="eyebrow">DF7 PRIVATE WORKSPACE</p><h1>{nav.find((item) => item[0] === page)?.[2]}</h1></div>
           <div className="topbar-actions">
             <button className={`drive-pill ${driveConnected ? 'connected' : ''}`} onClick={driveConnected ? disconnectDrive : connectDrive}><i />{driveConnected ? 'Drive connected' : 'Connect Drive'}</button>
-            <img src={user.photoURL || '/icon.svg'} alt="Account" referrerPolicy="no-referrer" />
+            <img src={user.photoURL || `${import.meta.env.BASE_URL}icon.svg`} alt="Account" referrerPolicy="no-referrer" />
           </div>
         </header>
         <main className="content">{children}</main>
