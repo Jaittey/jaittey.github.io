@@ -1,5 +1,5 @@
 {
-  "name": "DF7 Private Business App",
+  "name": "DF7 \u2014 Dhinash Family 7",
   "short_name": "DF7",
   "start_url": "/",
   "scope": "/",
@@ -7,6 +7,12 @@
   "background_color": "#080b10",
   "theme_color": "#080b10",
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
-  ]
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "description": "Private DF7 business management application"
 }
