@@ -68,8 +68,8 @@ async function addCompanyLogo(doc) {
       logo,
       'PNG',
       14,
-      5,
-      52,
+      5.5,
+      58,
       30,
       'df7-company-logo',
       'FAST',
@@ -90,19 +90,24 @@ export async function createBusinessPdf(kind, record, settings) {
   const number = isInvoice ? record.invoiceNumber : record.quoteNumber;
   const code = settings.currency || 'MVR';
 
-  doc.setFillColor(8, 11, 16);
+  // Warm cream header makes the navy-and-gold company logo clearly visible.
+  doc.setFillColor(244, 240, 231);
   doc.rect(0, 0, 210, 42, 'F');
+
+  // Navy accent strip replaces the previous black header.
+  doc.setFillColor(17, 45, 78);
+  doc.rect(0, 39, 210, 3, 'F');
 
   const logoAdded = await addCompanyLogo(doc);
 
   if (!logoAdded) {
-    doc.setTextColor(93, 217, 168);
+    doc.setTextColor(17, 45, 78);
     doc.setFontSize(23);
     doc.setFont('helvetica', 'bold');
     doc.text(settings.businessName || 'DF7', 16, 18);
   }
 
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(17, 45, 78);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.text(title, 194, 18, { align: 'right' });
@@ -137,7 +142,7 @@ export async function createBusinessPdf(kind, record, settings) {
       currency(Number(item.quantity) * Number(item.price), code),
     ]),
     theme: 'grid',
-    headStyles: { fillColor: [43, 143, 110], textColor: 255 },
+    headStyles: { fillColor: [17, 73, 105], textColor: 255 },
     styles: { fontSize: 9, cellPadding: 3.2 },
     columnStyles: {
       0: { cellWidth: 88 },

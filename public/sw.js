@@ -1,4 +1,4 @@
-const CACHE = 'df7-shell-v5-drive-batch-logo';
+const CACHE = 'df7-shell-v5-theme-logo';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/images/DF7_Logo.png', '/images/DF7_PAID.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));

@@ -1,11 +1,22 @@
 import { configurationError, OWNER_EMAIL } from '../config/firebase';
 
-export default function LoginPage({ login, error, loading }) {
+export default function LoginPage({ login, error, loading, theme, toggleTheme }) {
   return (
     <main className="login-page">
       <div className="login-orb orb-one" />
       <div className="login-orb orb-two" />
       <section className="login-card">
+        <button
+          type="button"
+          className="theme-toggle login-theme-toggle"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+          <span>{theme === 'dark' ? '☀' : '☾'}</span>
+          {theme === 'dark' ? 'Light' : 'Dark'}
+        </button>
+
         <div className="login-logo-wrap">
           <img
             className="login-company-logo"

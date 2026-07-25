@@ -29,6 +29,16 @@ export default function App() {
   const [driveConnected, setDriveConnected] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('df7-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('df7-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!toast.message) return undefined;
@@ -66,7 +76,17 @@ export default function App() {
   };
 
   if (loading) return <div className="loading-screen"><div className="loader" /><p>Securing DF7…</p></div>;
-  if (!user) return <LoginPage login={login} error={error} loading={loading} />;
+  if (!user) {
+    return (
+      <LoginPage
+        login={login}
+        error={error}
+        loading={loading}
+        theme={theme}
+        toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
+      />
+    );
+  }
 
   const common = { settings, notify };
   const renderPage = () => {
@@ -92,6 +112,8 @@ export default function App() {
       connectDrive={connectDrive}
       disconnectDrive={disconnect}
       businessName={settings.businessName}
+      theme={theme}
+      toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}
     >
       {dataError && <div className="alert alert-error">{dataError}</div>}
       {renderPage()}
