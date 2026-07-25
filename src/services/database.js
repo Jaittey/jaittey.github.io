@@ -129,3 +129,29 @@ export async function generateContractInvoice(contract, invoiceData) {
 
   return invoiceRef.id;
 }
+
+
+export async function savePayrollRecord(data, existingId = null) {
+  if (!data.employeeId || !data.salaryMonth) {
+    throw new Error('Employee and salary month are required.');
+  }
+
+  const deterministicId = `${data.employeeId}_${data.salaryMonth}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const payrollId = existingId || deterministicId;
+  const payrollRef = doc(db, 'payroll', payrollId);
+
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(payrollRef);
+    if (!existingId && snapshot.exists()) {
+      throw new Error('A salary record already exists for this employee and month.');
+    }
+
+    transaction.set(payrollRef, {
+      ...data,
+      updatedAt: serverTimestamp(),
+      ...(snapshot.exists() ? {} : { createdAt: serverTimestamp() }),
+    }, { merge: true });
+  });
+
+  return payrollId;
+}

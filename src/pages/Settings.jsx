@@ -44,6 +44,8 @@ export default function Settings({ settings, notify }) {
           <label><span>Currency</span><input value={form.currency || ''} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} /></label>
           <label><span>Invoice prefix</span><input value={form.invoicePrefix || ''} onChange={(e) => setForm({ ...form, invoicePrefix: e.target.value.toUpperCase() })} /></label>
           <label><span>Quotation prefix</span><input value={form.quotePrefix || ''} onChange={(e) => setForm({ ...form, quotePrefix: e.target.value.toUpperCase() })} /></label>
+          <label><span>Employee ID prefix</span><input value={form.employeePrefix || ''} onChange={(e) => setForm({ ...form, employeePrefix: e.target.value.toUpperCase() })} /></label>
+          <label><span>Salary slip prefix</span><input value={form.salarySlipPrefix || ''} onChange={(e) => setForm({ ...form, salarySlipPrefix: e.target.value.toUpperCase() })} /></label>
           <label><span>Authorized signatory</span><input value={form.authorizedSignatory || ''} onChange={(e) => setForm({ ...form, authorizedSignatory: e.target.value })} /></label>
           <label><span>Designation</span><input value={form.designation || ''} onChange={(e) => setForm({ ...form, designation: e.target.value })} /></label>
           <label><span>Bank name</span><input value={form.bankName || ''} onChange={(e) => setForm({ ...form, bankName: e.target.value })} /></label>

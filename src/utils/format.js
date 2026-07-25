@@ -89,3 +89,56 @@ export const monthLabel = (value = new Date()) => {
     year: 'numeric',
   }).format(date);
 };
+
+
+export const calculatePayrollTotals = (data = {}) => {
+  const basicSalary = safeNumber(data.basicSalary);
+  const overtimeHours = Math.max(0, safeNumber(data.overtimeHours));
+  const overtimeRate = Math.max(0, safeNumber(data.overtimeRate));
+  const overtimeAmount = overtimeHours * overtimeRate;
+  const allowances = Math.max(0, safeNumber(data.allowances));
+  const bonus = Math.max(0, safeNumber(data.bonus));
+  const otherEarnings = Math.max(0, safeNumber(data.otherEarnings));
+  const grossSalary = basicSalary + overtimeAmount + allowances + bonus + otherEarnings;
+
+  const lateDeduction = Math.max(0, safeNumber(data.lateDeduction));
+  const absentDeduction = Math.max(0, safeNumber(data.absentDeduction));
+  const loanDeduction = Math.max(0, safeNumber(data.loanDeduction));
+  const advanceDeduction = Math.max(0, safeNumber(data.advanceDeduction));
+  const otherDeductions = Math.max(0, safeNumber(data.otherDeductions));
+  const totalDeductions = lateDeduction + absentDeduction + loanDeduction + advanceDeduction + otherDeductions;
+  const netSalary = Math.max(0, grossSalary - totalDeductions);
+
+  return {
+    basicSalary,
+    overtimeHours,
+    overtimeRate,
+    overtimeAmount,
+    allowances,
+    bonus,
+    otherEarnings,
+    grossSalary,
+    lateDeduction,
+    absentDeduction,
+    loanDeduction,
+    advanceDeduction,
+    otherDeductions,
+    totalDeductions,
+    netSalary,
+  };
+};
+
+export const salaryMonthLabel = (value) => {
+  if (!value || !/^\d{4}-\d{2}$/.test(value)) return '—';
+  const [year, month] = value.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' })
+    .format(new Date(year, month - 1, 1));
+};
+
+export const currentSalaryMonth = () => new Date().toISOString().slice(0, 7);
+
+export const budgetPeriodLabel = (year, month = '') => {
+  if (!month) return `Annual ${year}`;
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' })
+    .format(new Date(Number(year), Number(month) - 1, 1));
+};

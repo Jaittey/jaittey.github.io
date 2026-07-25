@@ -11,6 +11,8 @@ export const defaultSettings = {
   currency: 'MVR',
   invoicePrefix: 'INV',
   quotePrefix: 'QTN',
+  salarySlipPrefix: 'PAY',
+  employeePrefix: 'EMP',
   driveRootFolder: 'DF7 Business',
   registrationNumber: '',
   tin: '',

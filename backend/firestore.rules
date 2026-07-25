@@ -67,6 +67,36 @@ service cloud.firestore {
       }
     }
 
+
+
+    match /employees/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['employeeNumber', 'name', 'status', 'basicSalary', 'createdAt', 'updatedAt'])
+        && request.resource.data.basicSalary is number
+        && request.resource.data.basicSalary >= 0;
+    }
+
+    match /payroll/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['employeeId', 'employeeName', 'salaryMonth', 'salarySlipNumber', 'grossSalary', 'totalDeductions', 'netSalary', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.grossSalary is number
+        && request.resource.data.totalDeductions is number
+        && request.resource.data.netSalary is number
+        && request.resource.data.netSalary >= 0;
+    }
+
+    match /budgets/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['year', 'category', 'plannedAmount', 'actualAmount', 'createdAt', 'updatedAt'])
+        && request.resource.data.plannedAmount is number
+        && request.resource.data.plannedAmount >= 0
+        && request.resource.data.actualAmount is number
+        && request.resource.data.actualAmount >= 0;
+    }
+
     match /settings/{id} {
       allow read, write: if isOwner();
     }

@@ -1,25 +1,21 @@
-# DF7 Private Business Application
+# DF7 Business v2.0 Enterprise
 
-A complete free serverless business application based on the original DF7 dashboard.
+Private business management application for DF7, deployed on GitHub Pages with Firebase Authentication and Firestore.
 
-## Features
+## Modules
 
-- Google Account login with one approved owner email
-- Live Firestore database accessible from phone or computer
-- Dashboard, invoices, quotations, stock, expenses and customers
-- Invoice stock deduction and restoration using Firestore transactions
-- Quote-to-invoice conversion
-- PDF preview and download
-- Google Drive PDF upload into organized folders
-- GitHub Pages automatic deployment
-- Owner-only Firestore security rules
-- Responsive mobile layout and installable web app shell
+- Dashboard
+- Invoices and tax calculations
+- Quotations
+- Recurring billing
+- Customers
+- Stock
+- Expenses
+- Employees
+- Payroll
+- Salary slips
+- Company budgets
+- Google Drive PDF storage
+- Settings and owner-only access
 
-## Architecture
-
-- Frontend: React + Vite on GitHub Pages
-- Serverless backend: Firebase Authentication + Cloud Firestore
-- File integration: Google Drive API
-- Cost: Free within Firebase Spark and GitHub usage limits
-
-Start with `SETUP_STEP_BY_STEP.md`.
+See `V2_ENTERPRISE_SETUP.md` for deployment and configuration steps.

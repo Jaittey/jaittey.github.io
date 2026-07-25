@@ -127,7 +127,7 @@ async function replacePdfFile(blob, fileName, fileId) {
   return response.json();
 }
 
-export async function uploadBusinessPdf(blob, fileName, category, rootName = 'DF7 Business', existingFileId = '') {
+export async function uploadBusinessPdf(blob, fileName, category, rootName = 'DF7 Business', existingFileId = '', folderOptions = {}) {
   // Existing document: replace the same Drive file instead of creating duplicates.
   if (existingFileId) {
     try {
@@ -141,8 +141,12 @@ export async function uploadBusinessPdf(blob, fileName, category, rootName = 'DF
 
   const root = await getOrCreateFolder(rootName || 'DF7 Business');
   const categoryFolder = await getOrCreateFolder(category, root.id);
-  const yearFolder = await getOrCreateFolder(String(new Date().getFullYear()), categoryFolder.id);
-  const created = await createPdfFile(blob, fileName, yearFolder.id);
+  const folderYear = String(folderOptions.year || new Date().getFullYear());
+  let targetFolder = await getOrCreateFolder(folderYear, categoryFolder.id);
+  for (const folderName of folderOptions.subfolders || []) {
+    if (folderName) targetFolder = await getOrCreateFolder(folderName, targetFolder.id);
+  }
+  const created = await createPdfFile(blob, fileName, targetFolder.id);
   return { ...created, replaced: false };
 }
 

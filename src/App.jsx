@@ -11,6 +11,9 @@ import Expenses from './pages/Expenses';
 import Customers from './pages/Customers';
 import Settings from './pages/Settings';
 import Billing from './pages/Billing';
+import Employees from './pages/Employees';
+import Payroll from './pages/Payroll';
+import Budget from './pages/Budget';
 import { useAuth } from './hooks/useAuth';
 import { useLiveCollection } from './hooks/useLiveCollection';
 import { useSettings } from './hooks/useSettings';
@@ -26,11 +29,15 @@ export default function App() {
   const expenses = useLiveCollection('expenses', 'createdAt', authenticated);
   const customers = useLiveCollection('customers', 'createdAt', authenticated);
   const billingContracts = useLiveCollection('billingContracts', 'createdAt', authenticated);
+  const employees = useLiveCollection('employees', 'createdAt', authenticated);
+  const payroll = useLiveCollection('payroll', 'createdAt', authenticated);
+  const budgets = useLiveCollection('budgets', 'createdAt', authenticated);
   const [page, setPage] = useState('dashboard');
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const [driveConnected, setDriveConnected] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [payrollEmployee, setPayrollEmployee] = useState(null);
   const [theme, setTheme] = useState(() => {
     const savedTheme = localStorage.getItem('df7-theme');
     if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
@@ -99,12 +106,15 @@ export default function App() {
       case 'expenses': return <Expenses expenses={expenses.items} {...common} />;
       case 'customers': return <Customers customers={customers.items} invoices={invoices.items} {...common} />;
       case 'billing': return <Billing contracts={billingContracts.items} customers={customers.items} {...common} openInvoices={() => setPage('invoices')} />;
+      case 'employees': return <Employees employees={employees.items} {...common} openPayroll={(employee) => { setPayrollEmployee(employee); setPage('payroll'); }} />;
+      case 'payroll': return <Payroll payroll={payroll.items} employees={employees.items} {...common} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={() => setPayrollEmployee(null)} />;
+      case 'budget': return <Budget budgets={budgets.items} {...common} />;
       case 'settings': return <Settings {...common} />;
-      default: return <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} settings={settings} />;
+      default: return <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={settings} />;
     }
   };
 
-  const dataError = [invoices, quotes, products, expenses, customers, billingContracts].find((source) => source.error)?.error;
+  const dataError = [invoices, quotes, products, expenses, customers, billingContracts, employees, payroll, budgets].find((source) => source.error)?.error;
   return <>
     <AppShell
       page={page}

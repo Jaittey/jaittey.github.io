@@ -173,3 +173,74 @@ input,select,textarea{font-size:16px}
   .document-totals{width:100%}
   .checkbox-label{padding-top:8px}
 }
+
+
+/* ===== DF7 Business v2.0 Enterprise ===== */
+.enterprise-dashboard-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.enterprise-summary-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:18px}
+.enterprise-dashboard-bottom{margin-top:18px;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr)}
+.employee-filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.employee-filters .search-box{min-width:min(360px,100%)}
+.employee-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.employee-card{display:flex;flex-direction:column;gap:18px}
+.employee-inactive{opacity:.7}
+.employee-card-head{display:flex;align-items:center;gap:14px}
+.employee-avatar{width:54px;height:54px;display:grid;place-items:center;border-radius:17px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#07100c;font-weight:900;font-size:18px;flex:0 0 auto}
+.employee-card-head h3{margin:7px 0 3px}
+.employee-card-head p{margin:0;color:var(--muted);font-size:12px}
+.employee-details{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0}
+.employee-details div{padding:11px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.employee-details dt{color:var(--muted);font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.employee-details dd{margin:5px 0 0;font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.employee-actions{margin-top:auto}
+.cell-subtext{display:block;margin-top:3px;color:var(--muted);font-size:10px}
+.payroll-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.payroll-calculation{width:min(100%,500px);margin:20px 0 24px auto;padding:18px;border:1px solid var(--border);border-radius:17px;background:var(--panel)}
+.payroll-calculation>div{display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:var(--muted)}
+.payroll-calculation strong{color:var(--text)}
+.payroll-calculation .payroll-net{margin-top:8px;padding-top:14px;border-top:1px solid var(--border);font-size:19px}
+.payroll-calculation .payroll-net span,.payroll-calculation .payroll-net strong{color:var(--accent)}
+.budget-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.budget-card{display:flex;flex-direction:column;gap:17px}
+.budget-card.over-budget{border-color:rgba(255,114,114,.35)}
+.budget-card-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}
+.budget-card-head span{color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase}
+.budget-card-head h3{margin:7px 0 0}
+.budget-card-head>strong{color:var(--accent);font-size:22px}
+.over-budget .budget-card-head>strong,.budget-negative strong{color:var(--danger)}
+.budget-progress{height:9px;border-radius:999px;background:var(--panel-strong);overflow:hidden}
+.budget-progress i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+.over-budget .budget-progress i{background:linear-gradient(90deg,#ff9b76,var(--danger))}
+.budget-card dl{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:0}
+.budget-card dl div{padding:11px;border:1px solid var(--border);border-radius:11px;background:var(--panel)}
+.budget-card dt{color:var(--muted);font-size:9px;text-transform:uppercase;font-weight:900}
+.budget-card dd{margin:5px 0 0;font-size:12px;font-weight:800}
+.budget-notes{margin:0;color:var(--muted);line-height:1.6}
+.dashboard-budget-progress{margin:28px 0 22px;height:13px}
+.dashboard-budget-values{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.dashboard-budget-values div{padding:13px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.dashboard-budget-values small{display:block;color:var(--muted);margin-bottom:6px}
+.dashboard-budget-values strong{font-size:12px}
+.status-approved{color:#a9d9ff;background:rgba(79,155,220,.12);border-color:rgba(79,155,220,.25)}
+
+@media(max-width:1100px){
+  .enterprise-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .enterprise-dashboard-bottom{grid-template-columns:1fr}
+  .payroll-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+  .mobile-nav{display:flex;overflow-x:auto;scrollbar-width:none;gap:3px;justify-content:flex-start}
+  .mobile-nav::-webkit-scrollbar{display:none}
+  .mobile-nav button{min-width:66px;flex:0 0 66px}
+  .employee-grid,.budget-grid{grid-template-columns:1fr}
+  .employee-details{grid-template-columns:1fr}
+  .payroll-grid{grid-template-columns:1fr}
+  .dashboard-budget-values{grid-template-columns:1fr}
+  .employee-filters{width:100%;display:grid;grid-template-columns:1fr}
+  .employee-filters>*{width:100%}
+}
+@media(max-width:480px){
+  .enterprise-dashboard-stats{grid-template-columns:1fr}
+  .budget-card dl{grid-template-columns:1fr}
+  .employee-actions{grid-template-columns:1fr 1fr}
+}

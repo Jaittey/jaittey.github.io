@@ -3,6 +3,9 @@ const nav = [
   ['invoices', '▤', 'Invoices'],
   ['quotes', '◫', 'Quotes'],
   ['billing', '↻', 'Billing'],
+  ['employees', '♙', 'Employees'],
+  ['payroll', '▣', 'Payroll'],
+  ['budget', '◫', 'Budget'],
   ['products', '□', 'Stock'],
   ['expenses', '↘', 'Expenses'],
   ['customers', '◎', 'Customers'],
@@ -31,7 +34,7 @@ export default function AppShell({ page, setPage, user, requestLogout, driveConn
 
       <div className="main-area">
         <header className="topbar">
-          <div><p className="eyebrow">DF7 PRIVATE WORKSPACE</p><h1>{nav.find((item) => item[0] === page)?.[2]}</h1></div>
+          <div><p className="eyebrow">DF7 BUSINESS v2.0 ENTERPRISE</p><h1>{nav.find((item) => item[0] === page)?.[2]}</h1></div>
           <div className="topbar-actions">
             <button
               type="button"
@@ -51,7 +54,7 @@ export default function AppShell({ page, setPage, user, requestLogout, driveConn
       </div>
 
       <nav className="mobile-nav">
-        {nav.slice(0, 6).map(([id, icon, label]) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><span>{icon}</span><small>{label}</small></button>)}
+        {nav.map(([id, icon, label]) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><span>{icon}</span><small>{label}</small></button>)}
       </nav>
     </div>
   );
