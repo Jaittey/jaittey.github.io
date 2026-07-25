@@ -2,6 +2,7 @@ const nav = [
   ['dashboard', '▦', 'Dashboard'],
   ['invoices', '▤', 'Invoices'],
   ['quotes', '◫', 'Quotes'],
+  ['billing', '↻', 'Billing'],
   ['products', '□', 'Stock'],
   ['expenses', '↘', 'Expenses'],
   ['customers', '◎', 'Customers'],
@@ -43,7 +44,7 @@ export default function AppShell({ page, setPage, user, requestLogout, driveConn
               <b>{theme === 'dark' ? 'Light' : 'Dark'}</b>
             </button>
             <button className={`drive-pill ${driveConnected ? 'connected' : ''}`} onClick={driveConnected ? disconnectDrive : connectDrive}><i />{driveConnected ? 'Drive connected' : 'Connect Drive'}</button>
-            <img src={user.photoURL || `${import.meta.env.BASE_URL}icon.svg`} alt="Account" referrerPolicy="no-referrer" />
+            <img src={user.photoURL || `${import.meta.env.BASE_URL}icon.png`} alt="Account" referrerPolicy="no-referrer" />
           </div>
         </header>
         <main className="content">{children}</main>

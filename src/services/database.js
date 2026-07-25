@@ -91,3 +91,41 @@ export async function deleteInvoiceAndRestoreStock(invoice) {
     transaction.delete(doc(db, 'invoices', invoice.id));
   });
 }
+
+
+export async function generateContractInvoice(contract, invoiceData) {
+  const period = invoiceData.billingPeriodKey;
+  if (!contract?.id || !period) throw new Error('Billing contract and period are required.');
+
+  const markerRef = doc(db, 'billingContracts', contract.id, 'generatedPeriods', period);
+  const invoiceRef = doc(collection(db, 'invoices'));
+
+  await runTransaction(db, async (transaction) => {
+    const marker = await transaction.get(markerRef);
+    if (marker.exists()) {
+      throw new Error(`An invoice has already been generated for ${invoiceData.servicePeriod}.`);
+    }
+
+    transaction.set(invoiceRef, {
+      ...invoiceData,
+      sourceContractId: contract.id,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
+
+    transaction.set(markerRef, {
+      invoiceId: invoiceRef.id,
+      invoiceNumber: invoiceData.invoiceNumber,
+      servicePeriod: invoiceData.servicePeriod,
+      generatedAt: serverTimestamp(),
+    });
+
+    transaction.update(doc(db, 'billingContracts', contract.id), {
+      lastGeneratedPeriod: period,
+      lastInvoiceId: invoiceRef.id,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  return invoiceRef.id;
+}

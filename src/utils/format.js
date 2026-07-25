@@ -52,3 +52,40 @@ export const groupMonthly = (invoices, expenses) => {
   });
   return months;
 };
+
+
+export const calculateDocumentTotals = (items = [], discountRate = 0, gstRate = 0) => {
+  const subtotal = items.reduce(
+    (sum, item) => sum + safeNumber(item.quantity) * safeNumber(item.price),
+    0,
+  );
+  const safeDiscountRate = Math.min(100, Math.max(0, safeNumber(discountRate)));
+  const safeGstRate = Math.min(100, Math.max(0, safeNumber(gstRate)));
+  const discountAmount = subtotal * (safeDiscountRate / 100);
+  const taxableAmount = Math.max(0, subtotal - discountAmount);
+  const gstAmount = taxableAmount * (safeGstRate / 100);
+  const total = taxableAmount + gstAmount;
+
+  return {
+    subtotal,
+    discountRate: safeDiscountRate,
+    discountAmount,
+    taxableAmount,
+    gstRate: safeGstRate,
+    gstAmount,
+    total,
+  };
+};
+
+export const monthKey = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+export const monthLabel = (value = new Date()) => {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat('en-GB', {
+    month: 'long',
+    year: 'numeric',
+  }).format(date);
+};

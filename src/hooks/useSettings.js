@@ -12,6 +12,20 @@ export const defaultSettings = {
   invoicePrefix: 'INV',
   quotePrefix: 'QTN',
   driveRootFolder: 'DF7 Business',
+  registrationNumber: '',
+  tin: '',
+  gstRegistered: false,
+  defaultGstRate: 0,
+  defaultDiscountRate: 0,
+  paymentTermsDays: 30,
+  bankName: '',
+  bankAccountName: '',
+  bankAccountNumber: '',
+  authorizedSignatory: '',
+  designation: '',
+  quotationValidityDays: 30,
+  defaultTerms: 'Payment is due within the stated payment period.',
+  quotationDeclaration: 'We confirm that the information and pricing in this quotation are accurate and valid for the stated validity period.',
 };
 
 export function useSettings(enabled = true) {

@@ -10,6 +10,7 @@ import Products from './pages/Products';
 import Expenses from './pages/Expenses';
 import Customers from './pages/Customers';
 import Settings from './pages/Settings';
+import Billing from './pages/Billing';
 import { useAuth } from './hooks/useAuth';
 import { useLiveCollection } from './hooks/useLiveCollection';
 import { useSettings } from './hooks/useSettings';
@@ -24,6 +25,7 @@ export default function App() {
   const products = useLiveCollection('products', 'createdAt', authenticated);
   const expenses = useLiveCollection('expenses', 'createdAt', authenticated);
   const customers = useLiveCollection('customers', 'createdAt', authenticated);
+  const billingContracts = useLiveCollection('billingContracts', 'createdAt', authenticated);
   const [page, setPage] = useState('dashboard');
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const [driveConnected, setDriveConnected] = useState(false);
@@ -96,12 +98,13 @@ export default function App() {
       case 'products': return <Products products={products.items} {...common} />;
       case 'expenses': return <Expenses expenses={expenses.items} {...common} />;
       case 'customers': return <Customers customers={customers.items} invoices={invoices.items} {...common} />;
+      case 'billing': return <Billing contracts={billingContracts.items} customers={customers.items} {...common} openInvoices={() => setPage('invoices')} />;
       case 'settings': return <Settings {...common} />;
       default: return <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} settings={settings} />;
     }
   };
 
-  const dataError = [invoices, quotes, products, expenses, customers].find((source) => source.error)?.error;
+  const dataError = [invoices, quotes, products, expenses, customers, billingContracts].find((source) => source.error)?.error;
   return <>
     <AppShell
       page={page}

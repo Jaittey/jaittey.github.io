@@ -54,6 +54,19 @@ service cloud.firestore {
         && request.resource.data.amount >= 0;
     }
 
+
+    match /billingContracts/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && hasRequiredFields(['name', 'customerName', 'monthlyAmount', 'createdAt', 'updatedAt'])
+        && request.resource.data.monthlyAmount is number
+        && request.resource.data.monthlyAmount >= 0;
+
+      match /generatedPeriods/{periodId} {
+        allow read, write: if isOwner();
+      }
+    }
+
     match /settings/{id} {
       allow read, write: if isOwner();
     }

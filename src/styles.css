@@ -136,3 +136,40 @@ input,select,textarea{font-size:16px}
   .login-card{border-radius:24px}
   .login-logo-wrap{height:128px}
 }
+
+/* ===== Billing, tax and government-style document fields ===== */
+.document-section-title{margin:22px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border);color:var(--accent);font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.tax-grid{margin-top:16px}
+.document-totals{margin:18px 0 22px;margin-left:auto;width:min(100%,430px);padding:16px 18px;border:1px solid var(--border);border-radius:16px;background:var(--panel)}
+.document-totals>div{display:flex;justify-content:space-between;gap:16px;padding:7px 0;color:var(--muted)}
+.document-totals strong{color:var(--text)}
+.document-totals .grand-total{margin-top:6px;padding-top:13px;border-top:1px solid var(--border);font-size:18px}
+.document-totals .grand-total span,.document-totals .grand-total strong{color:var(--accent)}
+.checkbox-label{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding-top:25px}
+.checkbox-label input{width:18px;height:18px;flex:0 0 auto}
+.alert-warning{color:#ffd98b;background:rgba(247,199,93,.1);border-color:rgba(247,199,93,.25)}
+.alert-info{color:#a9d9ff;background:rgba(79,155,220,.1);border-color:rgba(79,155,220,.25)}
+.billing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.billing-card{display:flex;flex-direction:column;gap:18px}
+.billing-card-head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
+.billing-card-head h3{margin:10px 0 5px}
+.billing-card-head p{margin:0;color:var(--muted)}
+.billing-card-head>strong{font-size:20px;text-align:right;white-space:nowrap}
+.billing-card-head>strong small{display:block;color:var(--muted);font-size:11px;font-weight:600}
+.billing-card dl{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0}
+.billing-card dl div{padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--panel)}
+.billing-card dt{color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase}
+.billing-card dd{margin:5px 0 0;font-weight:700}
+.invoice-generation-summary{margin-bottom:18px;padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--panel)}
+.invoice-generation-summary p{margin:0;color:var(--muted)}
+.invoice-generation-summary h3{margin:7px 0}
+.settings-form .wide{grid-column:1/-1}
+
+@media(max-width:760px){
+  .billing-grid{grid-template-columns:1fr}
+  .billing-card-head{display:grid}
+  .billing-card-head>strong{text-align:left}
+  .billing-card dl{grid-template-columns:1fr}
+  .document-totals{width:100%}
+  .checkbox-label{padding-top:8px}
+}
