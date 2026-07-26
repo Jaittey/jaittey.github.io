@@ -244,3 +244,100 @@ input,select,textarea{font-size:16px}
   .budget-card dl{grid-template-columns:1fr}
   .employee-actions{grid-template-columns:1fr 1fr}
 }
+
+
+/* ==========================================================
+   DF7 Business v2.1 Enterprise departmental ERP
+   ========================================================== */
+.v21-layout .enterprise-sidebar{width:292px;padding:18px 14px}
+.v21-layout .main-area{margin-left:292px}
+.enterprise-nav{overflow:auto;padding-right:4px}
+.enterprise-nav .nav-root,.enterprise-nav .nav-group-toggle{width:100%;display:grid;grid-template-columns:28px 1fr 22px;align-items:center;gap:9px;text-align:left}
+.enterprise-nav .nav-root{grid-template-columns:28px 1fr}
+.enterprise-nav .nav-group{margin:3px 0}
+.enterprise-nav .nav-group-toggle i{font-style:normal;text-align:center;color:var(--soft)}
+.enterprise-nav .nav-children{display:grid;gap:2px;margin:3px 0 8px 37px;padding-left:10px;border-left:1px solid var(--border)}
+.enterprise-nav .nav-children button{padding:9px 11px;border-radius:10px;text-align:left;background:transparent;border:0;color:var(--muted)}
+.enterprise-nav .nav-children button:hover,.enterprise-nav .nav-children button.active{background:var(--panel-strong);color:var(--text)}
+.version-pill{justify-self:center;padding:3px 9px;border:1px solid var(--border);border-radius:999px;color:var(--accent);font-weight:800}
+.enterprise-topbar{display:grid;grid-template-columns:auto minmax(180px,1fr) minmax(220px,390px) auto;gap:18px}
+.mobile-menu-button{display:none;width:42px;height:42px;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--text)}
+.global-search{position:relative;align-self:center}
+.global-search input{height:42px;padding-left:16px;border-radius:999px}
+.search-results{position:absolute;z-index:60;top:48px;left:0;right:0;display:grid;padding:8px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
+.search-results button{padding:11px;border:0;border-radius:10px;background:transparent;color:var(--text);text-align:left}
+.search-results button:hover{background:var(--panel-strong)}
+.module-hero{display:flex;justify-content:space-between;gap:24px;align-items:center;margin-bottom:18px}
+.module-hero h2{font-size:clamp(26px,4vw,40px);margin:4px 0 10px}
+.module-hero p:last-child{max-width:760px;color:var(--muted)}
+.module-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:16px}
+.module-card{display:grid;grid-template-columns:48px 1fr;gap:14px;align-items:start}
+.module-card>.button{grid-column:1/-1}
+.module-card-icon{width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:var(--panel-strong);color:var(--accent);font-size:22px}
+.module-card-heading{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.module-card-heading h3{margin:0}
+.module-card-heading small{padding:3px 8px;border-radius:999px;font-weight:800}
+.module-card-heading .ready{color:var(--accent);background:rgba(101,221,176,.1)}
+.module-card-heading .planned{color:var(--warning);background:rgba(247,199,93,.1)}
+.module-card p{color:var(--muted)}
+.module-card ul{margin:10px 0 0;padding-left:18px;color:var(--muted)}
+.login-mode-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:18px 0;padding:5px;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+.login-mode-tabs button{padding:9px 7px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-weight:800}
+.login-mode-tabs button.active{background:var(--panel-strong);color:var(--text)}
+.enterprise-login-form{display:grid;gap:12px;text-align:left}
+.enterprise-login-form label{display:grid;gap:6px}
+.enterprise-login-form span{color:var(--muted);font-size:12px;font-weight:700}
+.user-role-grid,.report-card-grid,.cloud-folder-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.user-role-card{display:grid;grid-template-columns:52px 1fr;gap:14px}
+.user-role-avatar{width:52px;height:52px;display:grid;place-items:center;border-radius:17px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#07100c;font-size:22px;font-weight:900}
+.user-role-info h3{margin:0 0 4px}
+.user-role-info p{margin:0 0 10px;color:var(--muted)}
+.role-badge{display:inline-flex;margin-right:7px;padding:4px 9px;border-radius:999px;background:var(--panel-strong);color:var(--text);font-size:10px;font-weight:900;text-transform:uppercase}
+.user-role-card .row-actions{grid-column:1/-1}
+.report-card{display:grid;grid-template-columns:42px 1fr;gap:12px;align-items:center}
+.report-card>span{font-size:24px;color:var(--accent)}
+.report-card h3,.report-card p{margin:0}
+.report-card p{margin-top:5px;color:var(--muted)}
+.report-card .button{grid-column:1/-1}
+.notification-list{display:grid;gap:10px}
+.notification-item{display:grid;grid-template-columns:42px 1fr;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px}
+.notification-item>span{width:36px;height:36px;display:grid;place-items:center;border-radius:12px;background:var(--panel-strong);font-weight:900}
+.notification-item h3,.notification-item p{margin:3px 0}
+.notification-item p,.notification-item small{color:var(--muted)}
+.notification-item.warning{border-color:rgba(247,199,93,.28)}
+.notification-item.danger{border-color:rgba(255,114,114,.28)}
+.cloud-folder{display:flex;gap:14px;align-items:center}
+.cloud-folder>span{font-size:28px;color:var(--accent)}
+.cloud-folder h3,.cloud-folder p{margin:0}
+.cloud-folder p{margin-top:5px;color:var(--muted)}
+.folder-tree{padding:18px;border-radius:14px;background:var(--surface);color:var(--muted);overflow:auto}
+.compact-stats{margin-bottom:18px}
+.page-subtitle{color:var(--muted);max-width:700px}
+.drawer-backdrop{display:none}
+
+@media(max-width:1100px){
+  .enterprise-topbar{grid-template-columns:auto 1fr auto}
+  .global-search{grid-column:1/-1;grid-row:2}
+}
+
+@media(max-width:820px){
+  .v21-layout .enterprise-sidebar{width:min(88vw,320px);transform:translateX(-105%);transition:transform .25s ease;z-index:100}
+  .v21-layout .enterprise-sidebar.mobile-open{transform:translateX(0)}
+  .v21-layout .main-area{margin-left:0}
+  .drawer-backdrop{display:block;position:fixed;inset:0;z-index:90;border:0;background:rgba(0,0,0,.48)}
+  .mobile-menu-button{display:grid;place-items:center}
+  .enterprise-topbar{grid-template-columns:auto 1fr auto;padding:11px 13px}
+  .topbar-title .eyebrow{display:none}
+  .topbar-title h1{font-size:20px}
+  .global-search{grid-column:1/-1}
+  .drive-pill{font-size:0;width:40px;padding:0}
+  .drive-pill i{margin:0}
+  .module-hero{align-items:flex-start;flex-direction:column}
+}
+
+@media(max-width:520px){
+  .enterprise-content{padding:10px}
+  .module-card-grid,.user-role-grid,.report-card-grid,.cloud-folder-grid{grid-template-columns:1fr}
+  .enterprise-topbar .topbar-actions img{display:none}
+  .login-mode-tabs{grid-template-columns:1fr}
+}

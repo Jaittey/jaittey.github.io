@@ -7,7 +7,25 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
+import { auth } from '../config/firebase';
 import { db } from '../config/firebase';
+
+
+async function writeActivity(action, module, recordId = '') {
+  if (module === 'activityLogs' || !auth.currentUser) return;
+  try {
+    await addDoc(collection(db, 'activityLogs'), {
+      action,
+      module,
+      recordId,
+      userEmail: auth.currentUser.email || '',
+      userName: auth.currentUser.displayName || '',
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.warn('Activity log could not be written:', error);
+  }
+}
 
 const timestamps = (existing = false) => ({
   updatedAt: serverTimestamp(),
@@ -17,13 +35,18 @@ const timestamps = (existing = false) => ({
 export async function saveRecord(collectionName, data, id = null) {
   if (id) {
     await setDoc(doc(db, collectionName, id), { ...data, ...timestamps(true) }, { merge: true });
+    await writeActivity('UPDATE', collectionName, id);
     return id;
   }
   const reference = await addDoc(collection(db, collectionName), { ...data, ...timestamps(false) });
+  await writeActivity('CREATE', collectionName, reference.id);
   return reference.id;
 }
 
-export const deleteRecord = (collectionName, id) => deleteDoc(doc(db, collectionName, id));
+export async function deleteRecord(collectionName, id) {
+  await deleteDoc(doc(db, collectionName, id));
+  await writeActivity('DELETE', collectionName, id);
+}
 
 export async function saveBusinessSettings(data) {
   await setDoc(doc(db, 'settings', 'business'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
@@ -154,4 +177,41 @@ export async function savePayrollRecord(data, existingId = null) {
   });
 
   return payrollId;
+}
+
+
+export async function receivePayment(invoice, payment) {
+  const paymentRef = doc(collection(db, 'payments'));
+  const invoiceRef = doc(db, 'invoices', invoice.id);
+
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(invoiceRef);
+    if (!snapshot.exists()) throw new Error('The selected invoice no longer exists.');
+    const current = snapshot.data();
+    const previousPaid = Number(current.amountPaid || 0);
+    const amount = Number(payment.amount || 0);
+    const total = Number(current.total || 0);
+    const amountPaid = previousPaid + amount;
+    const balanceDue = Math.max(0, total - amountPaid);
+
+    transaction.set(paymentRef, {
+      ...payment,
+      invoiceId: invoice.id,
+      invoiceNumber: current.invoiceNumber,
+      customerId: current.customerId || '',
+      customerName: current.customerName || '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    transaction.update(invoiceRef, {
+      amountPaid,
+      balanceDue,
+      status: balanceDue <= 0 ? 'PAID' : current.status,
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  await writeActivity('RECEIVE PAYMENT', 'payments', paymentRef.id);
+  return paymentRef.id;
 }

@@ -2,103 +2,114 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email == "jaeitte@gmail.com";
+    function signedIn() {
+      return request.auth != null && request.auth.token.email != null;
     }
 
-    function hasRequiredFields(required) {
-      return request.resource.data.keys().hasAll(required);
+    function email() {
+      return request.auth.token.email;
+    }
+
+    function isOwner() {
+      return signedIn() && email() == "jaeitte@gmail.com";
+    }
+
+    function accessPath() {
+      return /databases/$(database)/documents/userAccess/$(email());
+    }
+
+    function hasAccess() {
+      return signedIn()
+        && (isOwner()
+          || (exists(accessPath()) && get(accessPath()).data.active == true));
+    }
+
+    function role() {
+      return isOwner() ? "administrator" : get(accessPath()).data.role;
+    }
+
+    function roleIn(roles) {
+      return hasAccess() && (isOwner() || role() in roles);
+    }
+
+    function salesRole() {
+      return roleIn(["manager", "accountant", "staff"]);
+    }
+
+    function financeRole() {
+      return roleIn(["manager", "accountant"]);
+    }
+
+    function hrRole() {
+      return roleIn(["hr"]);
+    }
+
+    function managementRole() {
+      return roleIn(["manager"]);
+    }
+
+    match /userAccess/{emailId} {
+      allow read: if isOwner() || (signedIn() && emailId == email());
+      allow create, update, delete: if isOwner();
     }
 
     match /customers/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['name', 'createdAt', 'updatedAt']);
+      allow read: if roleIn(["manager", "accountant", "staff"]);
+      allow write: if salesRole();
     }
 
     match /products/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['name', 'quantity', 'price', 'threshold', 'createdAt', 'updatedAt'])
-        && request.resource.data.quantity is number
-        && request.resource.data.quantity >= 0
-        && request.resource.data.price is number
-        && request.resource.data.price >= 0;
+      allow read: if hasAccess();
+      allow write: if roleIn(["manager", "accountant"]);
     }
 
     match /invoices/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['invoiceNumber', 'customerName', 'items', 'total', 'status', 'createdAt', 'updatedAt'])
-        && request.resource.data.items is list
-        && request.resource.data.total is number
-        && request.resource.data.total >= 0;
+      allow read, write: if financeRole();
+      allow create: if salesRole();
     }
 
     match /quotes/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['quoteNumber', 'customerName', 'items', 'total', 'status', 'createdAt', 'updatedAt'])
-        && request.resource.data.items is list
-        && request.resource.data.total is number
-        && request.resource.data.total >= 0;
+      allow read: if roleIn(["manager", "accountant", "staff"]);
+      allow create, update: if salesRole();
+      allow delete: if financeRole();
+    }
+
+    match /payments/{id} {
+      allow read, write: if financeRole();
     }
 
     match /expenses/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['description', 'amount', 'date', 'createdAt', 'updatedAt'])
-        && request.resource.data.amount is number
-        && request.resource.data.amount >= 0;
+      allow read, write: if financeRole();
     }
 
-
     match /billingContracts/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['name', 'customerName', 'monthlyAmount', 'createdAt', 'updatedAt'])
-        && request.resource.data.monthlyAmount is number
-        && request.resource.data.monthlyAmount >= 0;
-
+      allow read, write: if financeRole();
       match /generatedPeriods/{periodId} {
-        allow read, write: if isOwner();
+        allow read, write: if financeRole();
       }
     }
 
-
-
     match /employees/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['employeeNumber', 'name', 'status', 'basicSalary', 'createdAt', 'updatedAt'])
-        && request.resource.data.basicSalary is number
-        && request.resource.data.basicSalary >= 0;
+      allow read, write: if roleIn(["manager", "hr"]);
     }
 
     match /payroll/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['employeeId', 'employeeName', 'salaryMonth', 'salarySlipNumber', 'grossSalary', 'totalDeductions', 'netSalary', 'status', 'createdAt', 'updatedAt'])
-        && request.resource.data.grossSalary is number
-        && request.resource.data.totalDeductions is number
-        && request.resource.data.netSalary is number
-        && request.resource.data.netSalary >= 0;
+      allow read, write: if roleIn(["accountant", "hr"]);
     }
 
     match /budgets/{id} {
-      allow read, delete: if isOwner();
-      allow create, update: if isOwner()
-        && hasRequiredFields(['year', 'category', 'plannedAmount', 'actualAmount', 'createdAt', 'updatedAt'])
-        && request.resource.data.plannedAmount is number
-        && request.resource.data.plannedAmount >= 0
-        && request.resource.data.actualAmount is number
-        && request.resource.data.actualAmount >= 0;
+      allow read, write: if financeRole();
     }
 
     match /settings/{id} {
-      allow read, write: if isOwner();
+      allow read: if hasAccess();
+      allow write: if isOwner();
+    }
+
+    match /activityLogs/{id} {
+      allow create: if hasAccess();
+      allow read, delete: if isOwner();
+      allow update: if false;
     }
 
     match /{document=**} {
