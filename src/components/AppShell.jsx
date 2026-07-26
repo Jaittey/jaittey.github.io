@@ -69,7 +69,7 @@ export default function AppShell({
         <div className="sidebar-brand">
           <div className="sidebar-logo-surface"><img className="sidebar-company-logo" src={`${import.meta.env.BASE_URL}images/DF7_Logo.png`} alt="DF7" /></div>
           <span className="sidebar-business-name">{businessName || 'Dhinash Family 7'}</span>
-          <small className="version-pill">ERP v2.1</small>
+          <small className="version-pill">ERP v2.1.1</small>
         </div>
         <nav className="sidebar-nav enterprise-nav">{renderNav()}</nav>
         <div className="sidebar-footer">
@@ -84,7 +84,7 @@ export default function AppShell({
         <header className="topbar enterprise-topbar">
           <button className="mobile-menu-button" onClick={() => setDrawerOpen(true)}>☰</button>
           <div className="topbar-title">
-            <p className="eyebrow">DF7 BUSINESS v2.1 ENTERPRISE</p>
+            <p className="eyebrow">DF7 BUSINESS v2.1.1 ENTERPRISE</p>
             <h1>{PAGE_TITLES[page] || 'Workspace'}</h1>
           </div>
           <div className="global-search">

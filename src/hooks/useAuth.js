@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider, OWNER_EMAIL } from '../config/firebase';
+import { normalizeRole } from '../config/erp';
 
 const emailId = (email = '') => email.trim().toLowerCase();
 
@@ -30,7 +31,8 @@ async function resolveAccess(user) {
   const snapshot = await getDoc(doc(db, 'userAccess', email));
   if (!snapshot.exists()) return null;
   const access = { id: snapshot.id, ...snapshot.data() };
-  return access.active === false ? null : access;
+  if (access.active === false) return null;
+  return { ...access, role: normalizeRole(access.role) };
 }
 
 export function useAuth() {

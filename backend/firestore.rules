@@ -24,28 +24,26 @@ service cloud.firestore {
           || (exists(accessPath()) && get(accessPath()).data.active == true));
     }
 
+    function storedRole() {
+      return get(accessPath()).data.role;
+    }
+
     function role() {
-      return isOwner() ? "administrator" : get(accessPath()).data.role;
+      return isOwner()
+        ? "administrator"
+        : (storedRole() == "manager" ? "manager" : "user");
     }
 
-    function roleIn(roles) {
-      return hasAccess() && (isOwner() || role() in roles);
+    function isManager() {
+      return hasAccess() && (isOwner() || role() == "manager");
     }
 
-    function salesRole() {
-      return roleIn(["manager", "accountant", "staff"]);
+    function isUser() {
+      return hasAccess() && role() == "user";
     }
 
-    function financeRole() {
-      return roleIn(["manager", "accountant"]);
-    }
-
-    function hrRole() {
-      return roleIn(["hr"]);
-    }
-
-    function managementRole() {
-      return roleIn(["manager"]);
+    function salesAccess() {
+      return isManager() || isUser();
     }
 
     match /userAccess/{emailId} {
@@ -53,54 +51,52 @@ service cloud.firestore {
       allow create, update, delete: if isOwner();
     }
 
+    // Manager and User: Quotations, Invoices, Customers and Inventory.
     match /customers/{id} {
-      allow read: if roleIn(["manager", "accountant", "staff"]);
-      allow write: if salesRole();
+      allow read, write: if salesAccess();
     }
 
     match /products/{id} {
-      allow read: if hasAccess();
-      allow write: if roleIn(["manager", "accountant"]);
+      allow read, write: if salesAccess();
     }
 
     match /invoices/{id} {
-      allow read, write: if financeRole();
-      allow create: if salesRole();
+      allow read, write: if salesAccess();
     }
 
     match /quotes/{id} {
-      allow read: if roleIn(["manager", "accountant", "staff"]);
-      allow create, update: if salesRole();
-      allow delete: if financeRole();
+      allow read, write: if salesAccess();
     }
 
+    // Manager-only operational departments.
     match /payments/{id} {
-      allow read, write: if financeRole();
+      allow read, write: if isManager();
     }
 
     match /expenses/{id} {
-      allow read, write: if financeRole();
+      allow read, write: if isManager();
     }
 
     match /billingContracts/{id} {
-      allow read, write: if financeRole();
+      allow read, write: if isManager();
       match /generatedPeriods/{periodId} {
-        allow read, write: if financeRole();
+        allow read, write: if isManager();
       }
     }
 
     match /employees/{id} {
-      allow read, write: if roleIn(["manager", "hr"]);
+      allow read, write: if isManager();
     }
 
     match /payroll/{id} {
-      allow read, write: if roleIn(["accountant", "hr"]);
+      allow read, write: if isManager();
     }
 
     match /budgets/{id} {
-      allow read, write: if financeRole();
+      allow read, write: if isManager();
     }
 
+    // All authorized accounts need read-only company settings for PDFs and currency.
     match /settings/{id} {
       allow read: if hasAccess();
       allow write: if isOwner();

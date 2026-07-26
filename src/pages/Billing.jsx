@@ -23,11 +23,6 @@ const addMonths = (value, amount) => {
   return inputDate(date);
 };
 
-const addDays = (value, days) => {
-  const date = new Date(`${value}T00:00:00`);
-  date.setDate(date.getDate() + Number(days || 0));
-  return inputDate(date);
-};
 
 export default function Billing({
   contracts,
@@ -56,7 +51,6 @@ export default function Billing({
     startDate: inputDate(),
     endDate: addMonths(inputDate(), 12),
     billingDay: 1,
-    paymentTermsDays: settings.paymentTermsDays || 30,
     gstRate: settings.gstRegistered ? safeNumber(settings.defaultGstRate) : 0,
     discountRate: 0,
     active: true,
@@ -95,7 +89,6 @@ export default function Billing({
       ...form,
       monthlyAmount: safeNumber(form.monthlyAmount),
       billingDay: safeNumber(form.billingDay),
-      paymentTermsDays: safeNumber(form.paymentTermsDays),
       gstRate: safeNumber(form.gstRate),
       discountRate: safeNumber(form.discountRate),
       active: Boolean(form.active),
@@ -117,7 +110,6 @@ export default function Billing({
       );
 
       const documentDate = billingDate;
-      const dueDate = addDays(documentDate, generateFor.paymentTermsDays || 30);
       await generateContractInvoice(generateFor, {
         invoiceNumber: makeNumber(settings.invoicePrefix || 'INV'),
         customerId: generateFor.customerId || '',
@@ -131,7 +123,6 @@ export default function Billing({
         servicePeriod,
         billingPeriodKey: periodKey,
         documentDate,
-        dueDate,
         paymentMethod: 'Bank Transfer',
         status: 'BILLED',
         terms: generateFor.terms || settings.defaultTerms || '',
@@ -230,7 +221,6 @@ export default function Billing({
             <label><span>Billing day</span><input type="number" min="1" max="28" value={form.billingDay} onChange={(e) => setForm({ ...form, billingDay: e.target.value })} /></label>
             <label><span>Start date</span><input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} /></label>
             <label><span>End date</span><input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></label>
-            <label><span>Payment terms (days)</span><input type="number" min="0" value={form.paymentTermsDays} onChange={(e) => setForm({ ...form, paymentTermsDays: e.target.value })} /></label>
             <label><span>Discount %</span><input type="number" min="0" max="100" step="0.01" value={form.discountRate} onChange={(e) => setForm({ ...form, discountRate: e.target.value })} /></label>
             <label><span>GST %</span><input type="number" min="0" max="100" step="0.01" value={form.gstRate} onChange={(e) => setForm({ ...form, gstRate: e.target.value })} /></label>
             <label className="checkbox-label"><input type="checkbox" checked={Boolean(form.active)} onChange={(e) => setForm({ ...form, active: e.target.checked })} /><span>Contract is active</span></label>

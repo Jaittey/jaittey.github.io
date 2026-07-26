@@ -1,5 +1,5 @@
 {
-  "name": "DF7 Business v2.1 Enterprise",
+  "name": "DF7 Business v2.1.1 Enterprise",
   "short_name": "DF7 Enterprise",
   "start_url": "/",
   "scope": "/",
@@ -14,5 +14,5 @@
       "purpose": "any maskable"
     }
   ],
-  "description": "Department-based private ERP for DF7 business operations."
+  "description": "Mobile-optimized department ERP with simplified Manager and User access roles."
 }

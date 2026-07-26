@@ -19,7 +19,6 @@ export const defaultSettings = {
   gstRegistered: false,
   defaultGstRate: 0,
   defaultDiscountRate: 0,
-  paymentTermsDays: 30,
   bankName: '',
   bankAccountName: '',
   bankAccountNumber: '',

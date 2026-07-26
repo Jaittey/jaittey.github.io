@@ -39,15 +39,19 @@ function loadCompanyLogoAsDataUrl() {
   return companyLogoDataUrlPromise;
 }
 
-async function addPaidStamp(doc, record, finalY) {
-  if (String(record.status || '').toUpperCase() !== 'PAID') return;
+async function addPaidStamp(doc, record, y) {
+  if (String(record.status || '').toUpperCase() !== 'PAID') return false;
   try {
     const stamp = await loadPaidStampAsDataUrl();
-    const stampSize = 42;
-    const stampY = Math.min(Math.max(finalY + 10, 190), 230);
-    doc.addImage(stamp, 'PNG', 16, stampY, stampSize, stampSize, 'df7-paid-stamp', 'FAST', -8);
+    const stampSize = 38;
+    const stampY = Math.max(18, Math.min(y, 232));
+    // The stamp is intentionally placed on the right and kept upright.
+    // Terms and payment details use a narrower left column, so text remains readable.
+    doc.addImage(stamp, 'PNG', 154, stampY, stampSize, stampSize, 'df7-paid-stamp', 'FAST');
+    return true;
   } catch (error) {
     console.warn(error);
+    return false;
   }
 }
 
@@ -63,13 +67,16 @@ async function addCompanyLogo(doc) {
 }
 
 const writeWrapped = (doc, text, x, y, width, lineHeight = 4.5) => {
-  const lines = doc.splitTextToSize(String(text || '—'), width);
-  doc.text(lines, x, y);
+  const lines = doc.splitTextToSize(String(text || ''), width);
+  if (lines.length) doc.text(lines, x, y);
   return y + lines.length * lineHeight;
 };
 
 const addPageFooter = (doc, settings) => {
   const pages = doc.getNumberOfPages();
+  const companyDetails = [settings.businessName || 'DF7', settings.phone, settings.email]
+    .filter(Boolean)
+    .join(' · ');
   for (let page = 1; page <= pages; page += 1) {
     doc.setPage(page);
     doc.setDrawColor(210, 214, 220);
@@ -77,14 +84,38 @@ const addPageFooter = (doc, settings) => {
     doc.setTextColor(100, 105, 115);
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');
-    doc.text(
-      `${settings.businessName || 'DF7'} · ${settings.phone || ''} · ${settings.email || ''}`,
-      14,
-      285,
-    );
+    doc.text(companyDetails, 14, 285);
     doc.text(`Page ${page} of ${pages}`, 196, 285, { align: 'right' });
   }
 };
+
+function renderOptionalMeta(doc, y, leftEntries, rightEntries) {
+  const left = leftEntries.filter(Boolean);
+  const right = rightEntries.filter(Boolean);
+  if (!left.length && !right.length) return y;
+
+  const rows = Math.max(left.length, right.length);
+  const rowHeights = Array.from({ length: rows }, (_, index) => {
+    const leftLines = left[index] ? doc.splitTextToSize(left[index], 79).length : 0;
+    const rightLines = right[index] ? doc.splitTextToSize(right[index], 79).length : 0;
+    return Math.max(leftLines, rightLines, 1) * 4.2 + 1.2;
+  });
+  const boxHeight = 7 + rowHeights.reduce((sum, height) => sum + height, 0);
+
+  doc.setFillColor(247, 249, 251);
+  doc.roundedRect(14, y, 182, boxHeight, 2, 2, 'F');
+  doc.setTextColor(50, 55, 65);
+  doc.setFontSize(8);
+
+  let cursor = y + 6;
+  for (let index = 0; index < rows; index += 1) {
+    if (left[index]) doc.text(doc.splitTextToSize(left[index], 79), 18, cursor);
+    if (right[index]) doc.text(doc.splitTextToSize(right[index], 79), 108, cursor);
+    cursor += rowHeights[index];
+  }
+
+  return y + boxHeight + 7;
+}
 
 export async function createBusinessPdf(kind, record, settings) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -116,9 +147,9 @@ export async function createBusinessPdf(kind, record, settings) {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text(number || 'DRAFT', 194, 24, { align: 'right' });
-  doc.text(`Date: ${dateText(record.documentDate || record.createdAt || new Date())}`, 194, 30, { align: 'right' });
-  if (isInvoice && record.dueDate) doc.text(`Due: ${dateText(record.dueDate)}`, 194, 35, { align: 'right' });
-  if (!isInvoice && record.validUntil) doc.text(`Valid until: ${dateText(record.validUntil)}`, 194, 35, { align: 'right' });
+  doc.text(`Date: ${dateText(record.documentDate || record.createdAt || new Date())}`, 194, 31, { align: 'right' });
+  // Invoices intentionally do not show a due date.
+  if (!isInvoice && record.validUntil) doc.text(`Valid until: ${dateText(record.validUntil)}`, 194, 36, { align: 'right' });
 
   doc.setTextColor(45, 51, 62);
   doc.setFontSize(8.5);
@@ -127,14 +158,13 @@ export async function createBusinessPdf(kind, record, settings) {
   doc.setFont('helvetica', 'normal');
 
   let sellerY = 55;
-  const sellerLines = [
+  [
     settings.address,
     settings.phone ? `Contact: ${settings.phone}` : '',
     settings.email ? `Email: ${settings.email}` : '',
     settings.registrationNumber ? `Registration No: ${settings.registrationNumber}` : '',
     settings.tin ? `TIN: ${settings.tin}` : '',
-  ].filter(Boolean);
-  sellerLines.forEach((line) => {
+  ].filter(Boolean).forEach((line) => {
     sellerY = writeWrapped(doc, line, 14, sellerY, 82, 4.2);
   });
 
@@ -152,25 +182,20 @@ export async function createBusinessPdf(kind, record, settings) {
     clientY = writeWrapped(doc, line, 112, clientY, 82, 4.2);
   });
 
-  const metaY = Math.max(sellerY, clientY) + 3;
-  doc.setFillColor(247, 249, 251);
-  doc.roundedRect(14, metaY, 182, 18, 2, 2, 'F');
-  doc.setTextColor(50, 55, 65);
-  doc.setFontSize(8);
-  const leftMeta = [
-    record.referenceNumber ? `Reference / PO: ${record.referenceNumber}` : 'Reference / PO: —',
-    record.contractNumber ? `Contract: ${record.contractNumber}` : 'Contract: —',
-  ];
-  const rightMeta = [
-    record.servicePeriod ? `Service period: ${record.servicePeriod}` : 'Service period: —',
-    isInvoice
-      ? `Payment: ${record.paymentMethod || '—'}`
-      : `Validity: ${dateText(record.validUntil)}`,
-  ];
-  doc.text(leftMeta, 18, metaY + 6);
-  doc.text(rightMeta, 108, metaY + 6);
-
-  let contentY = metaY + 25;
+  const metaStart = Math.max(sellerY, clientY) + 4;
+  let contentY = renderOptionalMeta(
+    doc,
+    metaStart,
+    [
+      record.referenceNumber ? `Reference / PO: ${record.referenceNumber}` : '',
+      record.contractNumber ? `Contract: ${record.contractNumber}` : '',
+    ],
+    [
+      record.servicePeriod ? `Service period: ${record.servicePeriod}` : '',
+      isInvoice && record.paymentMethod ? `Payment: ${record.paymentMethod}` : '',
+    ],
+  );
+  if (contentY === metaStart) contentY += 5;
 
   if (!isInvoice && record.introduction) {
     doc.setFont('helvetica', 'bold');
@@ -213,21 +238,35 @@ export async function createBusinessPdf(kind, record, settings) {
 
   let finalY = doc.lastAutoTable.finalY + 7;
   const amountX = 194;
+  const discountApplied = safeNumber(record.discountAmount) > 0 || safeNumber(record.discountRate) > 0;
+  const showTaxable = discountApplied || gstApplied;
+
   doc.setTextColor(45, 51, 62);
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.text('Subtotal', 142, finalY);
   doc.text(currency(record.subtotal ?? record.total, code), amountX, finalY, { align: 'right' });
   finalY += 5;
-  doc.text(`Discount (${safeNumber(record.discountRate).toFixed(2)}%)`, 142, finalY);
-  doc.text(`- ${currency(record.discountAmount, code)}`, amountX, finalY, { align: 'right' });
-  finalY += 5;
-  doc.text('Taxable amount', 142, finalY);
-  doc.text(currency(record.taxableAmount ?? record.total, code), amountX, finalY, { align: 'right' });
-  finalY += 5;
-  doc.text(`GST (${safeNumber(record.gstRate).toFixed(2)}%)`, 142, finalY);
-  doc.text(currency(record.gstAmount, code), amountX, finalY, { align: 'right' });
-  finalY += 7;
+
+  if (discountApplied) {
+    doc.text(`Discount (${safeNumber(record.discountRate).toFixed(2)}%)`, 142, finalY);
+    doc.text(`- ${currency(record.discountAmount, code)}`, amountX, finalY, { align: 'right' });
+    finalY += 5;
+  }
+
+  if (showTaxable) {
+    doc.text('Taxable amount', 142, finalY);
+    doc.text(currency(record.taxableAmount ?? record.total, code), amountX, finalY, { align: 'right' });
+    finalY += 5;
+  }
+
+  if (gstApplied) {
+    doc.text(`GST (${safeNumber(record.gstRate).toFixed(2)}%)`, 142, finalY);
+    doc.text(currency(record.gstAmount, code), amountX, finalY, { align: 'right' });
+    finalY += 5;
+  }
+
+  finalY += 2;
   doc.setDrawColor(17, 73, 105);
   doc.line(140, finalY - 4, 194, finalY - 4);
   doc.setFont('helvetica', 'bold');
@@ -235,13 +274,15 @@ export async function createBusinessPdf(kind, record, settings) {
   doc.text('TOTAL', 142, finalY);
   doc.text(currency(record.total, code), amountX, finalY, { align: 'right' });
 
-  if (isInvoice) await addPaidStamp(doc, record, finalY);
-
-  let notesY = Math.max(finalY + 12, 205);
-  if (notesY > 250) {
+  let notesY = Math.max(finalY + 12, 190);
+  if (notesY > 237) {
     doc.addPage();
-    notesY = 20;
+    notesY = 22;
   }
+
+  const paid = isInvoice && String(record.status || '').toUpperCase() === 'PAID';
+  const notesStartY = notesY;
+  const textWidth = paid ? 122 : 182;
 
   if (record.terms) {
     doc.setTextColor(45, 51, 62);
@@ -250,7 +291,7 @@ export async function createBusinessPdf(kind, record, settings) {
     doc.text('TERMS AND CONDITIONS', 14, notesY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    notesY = writeWrapped(doc, record.terms, 14, notesY + 5, 182, 4.2) + 4;
+    notesY = writeWrapped(doc, record.terms, 14, notesY + 5, textWidth, 4.2) + 5;
   }
 
   if (!isInvoice && record.declaration) {
@@ -259,33 +300,43 @@ export async function createBusinessPdf(kind, record, settings) {
     doc.text('DECLARATION', 14, notesY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    notesY = writeWrapped(doc, record.declaration, 14, notesY + 5, 182, 4.2) + 4;
+    notesY = writeWrapped(doc, record.declaration, 14, notesY + 5, 182, 4.2) + 5;
   }
 
-  if (isInvoice && (settings.bankName || settings.bankAccountNumber)) {
+  const bankLines = isInvoice ? [
+    settings.bankName ? `Bank: ${settings.bankName}` : '',
+    settings.bankAccountName ? `Account name: ${settings.bankAccountName}` : '',
+    settings.bankAccountNumber ? `Account number: ${settings.bankAccountNumber}` : '',
+  ].filter(Boolean) : [];
+
+  if (bankLines.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.text('PAYMENT DETAILS', 14, notesY);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    [
-      settings.bankName ? `Bank: ${settings.bankName}` : '',
-      settings.bankAccountName ? `Account name: ${settings.bankAccountName}` : '',
-      settings.bankAccountNumber ? `Account number: ${settings.bankAccountNumber}` : '',
-    ].filter(Boolean).forEach((line, index) => doc.text(line, 14, notesY + 5 + index * 4.2));
-    notesY += 20;
+    bankLines.forEach((line, index) => doc.text(line, 14, notesY + 5 + index * 4.2));
+    notesY += 7 + bankLines.length * 4.2;
   }
 
+  if (paid) await addPaidStamp(doc, record, notesStartY + 2);
+
   if (settings.authorizedSignatory) {
+    let signatureY = Math.max(notesY + 5, paid ? notesStartY + 46 : notesY + 5);
+    if (signatureY > 248) {
+      doc.addPage();
+      signatureY = 35;
+    }
+    doc.setTextColor(45, 51, 62);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text('Authorized by:', 142, notesY);
+    doc.text('Authorized by:', 142, signatureY);
     doc.setFont('helvetica', 'bold');
-    doc.text(settings.authorizedSignatory, 142, notesY + 6);
+    doc.text(settings.authorizedSignatory, 142, signatureY + 6);
     doc.setFont('helvetica', 'normal');
-    if (settings.designation) doc.text(settings.designation, 142, notesY + 11);
-    doc.line(142, notesY + 18, 194, notesY + 18);
-    doc.text('Authorized signature / company stamp', 142, notesY + 23);
+    if (settings.designation) doc.text(settings.designation, 142, signatureY + 11);
+    doc.line(142, signatureY + 18, 194, signatureY + 18);
+    doc.text('Authorized signature / company stamp', 142, signatureY + 23);
   }
 
   addPageFooter(doc, settings);

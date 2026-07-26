@@ -35,9 +35,6 @@ export default function DocumentEditor({
     status: isInvoice ? 'BILLED' : 'DRAFT',
     paymentMethod: 'Bank Transfer',
     documentDate: defaultDocumentDate,
-    dueDate: isInvoice
-      ? addDays(defaultDocumentDate, settings.paymentTermsDays || 30)
-      : '',
     validUntil: !isInvoice
       ? addDays(defaultDocumentDate, settings.quotationValidityDays || 30)
       : '',
@@ -111,9 +108,7 @@ export default function DocumentEditor({
     setForm((current) => ({
       ...current,
       documentDate: value,
-      ...(isInvoice
-        ? { dueDate: addDays(value, settings.paymentTermsDays || 30) }
-        : { validUntil: addDays(value, settings.quotationValidityDays || 30) }),
+      ...(!isInvoice ? { validUntil: addDays(value, settings.quotationValidityDays || 30) } : {}),
     }));
   };
 
@@ -163,7 +158,6 @@ export default function DocumentEditor({
       ...(isInvoice
         ? {
             paymentMethod: form.paymentMethod || 'Bank Transfer',
-            dueDate: form.dueDate || '',
           }
         : {
             validUntil: form.validUntil || '',
@@ -200,9 +194,7 @@ export default function DocumentEditor({
         <label><span>Reference / PO / tender number</span><input value={form.referenceNumber || ''} onChange={(e) => setForm({ ...form, referenceNumber: e.target.value })} /></label>
         <label><span>Contract number</span><input value={form.contractNumber || ''} onChange={(e) => setForm({ ...form, contractNumber: e.target.value })} /></label>
         <label><span>Document date</span><input type="date" value={form.documentDate} onChange={(e) => updateDocumentDate(e.target.value)} /></label>
-        {isInvoice
-          ? <label><span>Payment due date</span><input type="date" value={form.dueDate || ''} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></label>
-          : <label><span>Expiry / validity date</span><input type="date" value={form.validUntil || ''} onChange={(e) => setForm({ ...form, validUntil: e.target.value })} /></label>}
+        {!isInvoice && <label><span>Expiry / validity date</span><input type="date" value={form.validUntil || ''} onChange={(e) => setForm({ ...form, validUntil: e.target.value })} /></label>}
         <label><span>Service / billing period</span><input value={form.servicePeriod || ''} onChange={(e) => setForm({ ...form, servicePeriod: e.target.value })} placeholder="e.g. July 2026" /></label>
         <label><span>Status</span><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{(isInvoice ? ['BILLED', 'PAID', 'CANCELLED'] : ['DRAFT', 'SENT', 'ACCEPTED', 'DECLINED']).map((value) => <option key={value}>{value}</option>)}</select></label>
         {isInvoice && <label><span>Payment method</span><select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>{['Cash', 'Bank Transfer', 'Card', 'Cheque'].map((value) => <option key={value}>{value}</option>)}</select></label>}

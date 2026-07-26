@@ -3,9 +3,14 @@ export const OWNER_EMAIL_FALLBACK = 'jaeitte@gmail.com';
 export const ROLE_LABELS = {
   administrator: 'Administrator',
   manager: 'Manager',
-  accountant: 'Accountant',
-  hr: 'HR Officer',
-  staff: 'Staff',
+  user: 'User',
+};
+
+export const normalizeRole = (role) => {
+  if (role === 'administrator' || role === 'manager' || role === 'user') return role;
+  // Legacy Accountant, HR Officer and Staff records are intentionally reduced
+  // to the safer User permission set until the administrator edits them.
+  return 'user';
 };
 
 export const PAGE_PERMISSIONS = {
@@ -13,39 +18,27 @@ export const PAGE_PERMISSIONS = {
   manager: [
     'dashboard', 'quotes', 'invoices', 'billing', 'payments',
     'customers', 'contracts', 'statements',
-    'employees', 'finance', 'expenses', 'budget', 'products',
+    'employees', 'hr-records', 'payroll', 'attendance',
+    'finance', 'expenses', 'budget', 'tax',
+    'products', 'suppliers', 'assets',
     'reports', 'cloud', 'notifications',
   ],
-  accountant: [
-    'dashboard', 'quotes', 'invoices', 'billing', 'payments',
-    'customers', 'statements', 'finance', 'expenses', 'budget',
-    'reports', 'cloud', 'notifications',
-  ],
-  hr: [
-    'dashboard', 'employees', 'hr-records', 'payroll', 'attendance',
-    'reports', 'cloud', 'notifications',
-  ],
-  staff: [
-    'dashboard', 'quotes', 'customers', 'products', 'notifications',
-  ],
+  user: ['quotes', 'invoices', 'customers', 'products'],
 };
 
 export const canAccessPage = (role, page) => {
-  const allowed = PAGE_PERMISSIONS[role] || [];
+  const allowed = PAGE_PERMISSIONS[normalizeRole(role)] || [];
   return allowed.includes('*') || allowed.includes(page);
 };
 
+export const getDefaultPage = (role) => (
+  normalizeRole(role) === 'user' ? 'invoices' : 'dashboard'
+);
+
 export const ERP_NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: '▦', page: 'dashboard' },
   {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: '▦',
-    page: 'dashboard',
-  },
-  {
-    id: 'sales',
-    label: 'Sales & Billing',
-    icon: '▤',
+    id: 'sales', label: 'Sales & Billing', icon: '▤',
     children: [
       ['quotes', 'Quotations'],
       ['invoices', 'Invoices'],
@@ -54,9 +47,7 @@ export const ERP_NAV = [
     ],
   },
   {
-    id: 'crm',
-    label: 'CRM',
-    icon: '◎',
+    id: 'crm', label: 'CRM', icon: '◎',
     children: [
       ['customers', 'Customers'],
       ['contracts', 'Contracts'],
@@ -64,27 +55,15 @@ export const ERP_NAV = [
     ],
   },
   {
-    id: 'hr',
-    label: 'Employee Management',
-    icon: '♙',
-    children: [
-      ['employees', 'Employees'],
-      ['hr-records', 'HR Records'],
-    ],
+    id: 'hr', label: 'Employee Management', icon: '♙',
+    children: [['employees', 'Employees'], ['hr-records', 'HR Records']],
   },
   {
-    id: 'payroll-group',
-    label: 'Payroll & Attendance',
-    icon: '▣',
-    children: [
-      ['payroll', 'Payroll'],
-      ['attendance', 'Attendance'],
-    ],
+    id: 'payroll-group', label: 'Payroll & Attendance', icon: '▣',
+    children: [['payroll', 'Payroll'], ['attendance', 'Attendance']],
   },
   {
-    id: 'finance-group',
-    label: 'Financial Management',
-    icon: '◈',
+    id: 'finance-group', label: 'Financial Management', icon: '◈',
     children: [
       ['finance', 'Finance Overview'],
       ['expenses', 'Expenses'],
@@ -93,53 +72,19 @@ export const ERP_NAV = [
     ],
   },
   {
-    id: 'inventory-group',
-    label: 'Inventory & Assets',
-    icon: '□',
-    children: [
-      ['products', 'Inventory'],
-      ['suppliers', 'Suppliers'],
-      ['assets', 'Company Assets'],
-    ],
+    id: 'inventory-group', label: 'Inventory & Assets', icon: '□',
+    children: [['products', 'Inventory'], ['suppliers', 'Suppliers'], ['assets', 'Company Assets']],
   },
+  { id: 'reports-group', label: 'Reports & Analytics', icon: '⌁', page: 'reports' },
+  { id: 'cloud-group', label: 'Cloud & Documents', icon: '☁', page: 'cloud' },
+  { id: 'notifications-group', label: 'Notifications', icon: '●', page: 'notifications' },
   {
-    id: 'reports-group',
-    label: 'Reports & Analytics',
-    icon: '⌁',
-    page: 'reports',
+    id: 'admin-group', label: 'Administration', icon: '⚙',
+    children: [['settings', 'Company & System'], ['activity', 'Activity Logs']],
   },
-  {
-    id: 'cloud-group',
-    label: 'Cloud & Documents',
-    icon: '☁',
-    page: 'cloud',
-  },
-  {
-    id: 'notifications-group',
-    label: 'Notifications',
-    icon: '●',
-    page: 'notifications',
-  },
-  {
-    id: 'admin-group',
-    label: 'Administration',
-    icon: '⚙',
-    children: [
-      ['settings', 'Company & System'],
-      ['activity', 'Activity Logs'],
-    ],
-  },
-  {
-    id: 'users-group',
-    label: 'User Management',
-    icon: '♚',
-    page: 'users',
-  },
+  { id: 'users-group', label: 'User Management', icon: '♚', page: 'users' },
 ];
 
 export const PAGE_TITLES = Object.fromEntries(
-  ERP_NAV.flatMap((group) => {
-    if (group.page) return [[group.page, group.label]];
-    return group.children || [];
-  }),
+  ERP_NAV.flatMap((group) => (group.page ? [[group.page, group.label]] : group.children || [])),
 );

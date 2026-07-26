@@ -11,7 +11,6 @@ export default function Settings({ settings, notify }) {
       ...form,
       defaultGstRate: Number(form.defaultGstRate || 0),
       defaultDiscountRate: Number(form.defaultDiscountRate || 0),
-      paymentTermsDays: Number(form.paymentTermsDays || 0),
       quotationValidityDays: Number(form.quotationValidityDays || 0),
       gstRegistered: Boolean(form.gstRegistered),
     });
@@ -39,7 +38,6 @@ export default function Settings({ settings, notify }) {
           <label className="checkbox-label"><input type="checkbox" checked={Boolean(form.gstRegistered)} onChange={(e) => setForm({ ...form, gstRegistered: e.target.checked })} /><span>Company is GST registered</span></label>
           <label><span>Default GST %</span><input type="number" min="0" max="100" step="0.01" value={form.defaultGstRate ?? 0} onChange={(e) => setForm({ ...form, defaultGstRate: e.target.value })} /></label>
           <label><span>Default discount %</span><input type="number" min="0" max="100" step="0.01" value={form.defaultDiscountRate ?? 0} onChange={(e) => setForm({ ...form, defaultDiscountRate: e.target.value })} /></label>
-          <label><span>Default payment terms (days)</span><input type="number" min="0" value={form.paymentTermsDays ?? 30} onChange={(e) => setForm({ ...form, paymentTermsDays: e.target.value })} /></label>
           <label><span>Quotation validity (days)</span><input type="number" min="1" value={form.quotationValidityDays ?? 30} onChange={(e) => setForm({ ...form, quotationValidityDays: e.target.value })} /></label>
           <label><span>Currency</span><input value={form.currency || ''} onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })} /></label>
           <label><span>Invoice prefix</span><input value={form.invoicePrefix || ''} onChange={(e) => setForm({ ...form, invoicePrefix: e.target.value.toUpperCase() })} /></label>

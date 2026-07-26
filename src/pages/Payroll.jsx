@@ -185,7 +185,7 @@ export default function Payroll({ payroll, employees, settings, notify, markDriv
             <td data-label="Deductions">{currency(record.totalDeductions, settings.currency)}</td>
             <td data-label="Net salary"><strong>{currency(record.netSalary, settings.currency)}</strong></td>
             <td data-label="Status"><span className={`status status-${record.status?.toLowerCase()}`}>{record.status}</span></td>
-            <td><div className="row-actions"><button onClick={() => open(record)}>Edit</button><button onClick={() => preview(record)}>Preview</button><button onClick={() => download(record)}>PDF</button><button onClick={() => uploadOne(record)}>{record.driveFileId ? 'Replace Drive' : 'Drive'}</button><button className="danger" onClick={async () => { if (confirm(`Delete ${record.salarySlipNumber}?`)) { await deleteRecord('payroll', record.id); notify('Salary record deleted.'); } }}>Delete</button></div></td>
+            <td data-label="Actions"><div className="row-actions"><button onClick={() => open(record)}>Edit</button><button onClick={() => preview(record)}>Preview</button><button onClick={() => download(record)}>PDF</button><button onClick={() => uploadOne(record)}>{record.driveFileId ? 'Replace Drive' : 'Drive'}</button><button className="danger" onClick={async () => { if (confirm(`Delete ${record.salarySlipNumber}?`)) { await deleteRecord('payroll', record.id); notify('Salary record deleted.'); } }}>Delete</button></div></td>
           </tr>)}</tbody>
         </table>
       </div>

@@ -112,9 +112,9 @@ export default function Invoices({ invoices, customers, products, settings, noti
                 <td data-label="Date">{dateText(row.documentDate || row.createdAt)}</td>
                 <td data-label="Service period">{row.servicePeriod || '—'}</td>
                 <td data-label="Customer">{row.customerOrganisation || row.customerName}</td>
-                <td><span className={`status status-${row.status?.toLowerCase()}`}>{isPaid && <img className="paid-status-icon" src={`${import.meta.env.BASE_URL}images/DF7_PAID.png`} alt="" />}{isPaid ? 'PAID' : row.status}</span></td>
-                <td>{currency(row.total, settings.currency)}</td>
-                <td><div className="row-actions"><button onClick={() => setEditor({ record: row })}>Edit</button><button onClick={() => preview(row)}>Preview</button><button onClick={() => download(row)}>PDF</button><button onClick={() => upload(row)}>{row.driveFileId ? 'Replace Drive' : 'Drive'}</button><button className="danger" onClick={() => remove(row)}>Delete</button></div></td>
+                <td data-label="Status"><span className={`status status-${row.status?.toLowerCase()}`}>{isPaid && <img className="paid-status-icon" src={`${import.meta.env.BASE_URL}images/DF7_PAID.png`} alt="" />}{isPaid ? 'PAID' : row.status}</span></td>
+                <td data-label="Total">{currency(row.total, settings.currency)}</td>
+                <td data-label="Actions"><div className="row-actions"><button onClick={() => setEditor({ record: row })}>Edit</button><button onClick={() => preview(row)}>Preview</button><button onClick={() => download(row)}>PDF</button><button onClick={() => upload(row)}>{row.driveFileId ? 'Replace Drive' : 'Drive'}</button><button className="danger" onClick={() => remove(row)}>Delete</button></div></td>
               </tr>;
             })}
           </tbody>

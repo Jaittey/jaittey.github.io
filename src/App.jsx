@@ -21,7 +21,7 @@ import Notifications from './pages/Notifications';
 import CloudDocuments from './pages/CloudDocuments';
 import UserManagement from './pages/UserManagement';
 import ActivityLogs from './pages/ActivityLogs';
-import { canAccessPage } from './config/erp';
+import { canAccessPage, getDefaultPage } from './config/erp';
 import { useAuth } from './hooks/useAuth';
 import { useLiveCollection } from './hooks/useLiveCollection';
 import { useSettings } from './hooks/useSettings';
@@ -64,7 +64,7 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => {
-    if (authenticated && !canAccessPage(role, page)) setPage('dashboard');
+    if (authenticated && role && !canAccessPage(role, page)) setPage(getDefaultPage(role));
   }, [authenticated, role, page]);
 
   const notify = (message, type = 'success') => setToast({ message, type });
@@ -96,7 +96,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise…</p></div>;
+  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.1…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} theme={theme} toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />;
 
   const common = { settings, notify };
@@ -135,7 +135,7 @@ export default function App() {
       case 'expenses': return <Expenses expenses={expenses.items} {...common} />;
       case 'budget': return <Budget budgets={budgets.items} {...common} />;
       case 'tax': return hub('FINANCIAL MANAGEMENT', 'GST & Tax', 'Company GST configuration and tax-ready document controls.', [
-        { title: 'GST settings', icon: '%', description: 'Configure registration status, TIN and default GST rate.', features: ['TIN', 'GST percentage', 'Tax invoice title'], ready: true, page: 'settings' },
+        { title: 'GST settings', icon: '%', description: 'GST registration, TIN and default rates are controlled by the Administrator.', features: ['TIN', 'GST percentage', 'Tax invoice title'], ready: true },
         { title: 'GST report', icon: '⌁', description: 'Export invoice and tax data for review.', features: ['GST amounts', 'Taxable totals', 'CSV export'], ready: true, page: 'reports' },
       ]);
       case 'products': return <Products products={products.items} {...common} />;
@@ -147,7 +147,7 @@ export default function App() {
       case 'settings': return <Settings {...common} />;
       case 'activity': return <ActivityLogs logs={activityLogs.items} />;
       case 'users': return <UserManagement users={users.items} notify={notify} />;
-      default: return <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={settings} />;
+      default: return canAccessPage(role, 'dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={settings} /> : <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} />;
     }
   };
 
