@@ -1,7 +1,7 @@
 {
-  "name": "df7-business-v2-1-1-enterprise",
+  "name": "df7-business-v2-1-2-mobile-friendly",
   "private": true,
-  "version": "2.1.1",
+  "version": "2.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,26 +1,22 @@
-# DF7 Business v2.1.1 Enterprise
+# DF7 Business v2.1.2 Enterprise
 
-Private business management application for DF7, deployed on GitHub Pages with Firebase Authentication and Firestore.
+Mobile-friendly department-based ERP for Dhinasha Family 7.
 
-## Modules
+## Main mobile improvements
 
-- Dashboard
-- Invoices and tax calculations
-- Quotations
-- Recurring billing
-- Customers
-- Stock
-- Expenses
-- Employees
-- Payroll
-- Salary slips
-- Company budgets
-- Google Drive PDF storage
-- Settings and owner-only access
+- Persistent five-button bottom navigation
+- Direct access to invoices, quotations, customers and inventory
+- Full department menu through More or the hamburger button
+- Optional module search inside the full menu
+- Compact two-column dashboard statistics
+- Quick Access buttons above dashboard analytics
+- Smaller mobile header
+- Full-screen mobile forms
 
-See `V2_ENTERPRISE_SETUP.md` for deployment and configuration steps.
+## Access roles
 
+- Administrator: owner account with complete access
+- Manager: all operational modules except Administration and User Management
+- User: Invoices, Quotations, Customers and Inventory
 
-## v2.1.1 update
-
-Invoice due dates were removed, optional PDF fields are hidden, the Paid stamp no longer covers terms, mobile layouts were strengthened, and delegated access was simplified to Manager and User. See `V2_1_1_UPDATE_SETUP.md`.
+See `V2_1_2_MOBILE_UPDATE_SETUP.md` for deployment instructions.

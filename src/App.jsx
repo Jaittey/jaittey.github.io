@@ -96,7 +96,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.1…</p></div>;
+  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.2…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} theme={theme} toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />;
 
   const common = { settings, notify };
@@ -147,7 +147,7 @@ export default function App() {
       case 'settings': return <Settings {...common} />;
       case 'activity': return <ActivityLogs logs={activityLogs.items} />;
       case 'users': return <UserManagement users={users.items} notify={notify} />;
-      default: return canAccessPage(role, 'dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={settings} /> : <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} />;
+      default: return canAccessPage(role, 'dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={settings} role={role} onNavigate={setPage} /> : <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} />;
     }
   };
 
