@@ -13,15 +13,41 @@ export const DEFAULT_ATTENDANCE_SHIFTS = [
   { id: 'night', name: 'Night', startTime: '00:00', endTime: '08:00', isDefault: false, active: true },
 ];
 
+export const normalizeTime24 = (value = '') => {
+  const match = String(value || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return '';
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return '';
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+};
+
 export const timeRangeHours = (startTime = '', endTime = '') => {
-  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) return 0;
-  const [startHour, startMinute] = startTime.split(':').map(Number);
-  const [endHour, endMinute] = endTime.split(':').map(Number);
+  const normalizedStart = normalizeTime24(startTime);
+  const normalizedEnd = normalizeTime24(endTime);
+  if (!normalizedStart || !normalizedEnd) return 0;
+  const [startHour, startMinute] = normalizedStart.split(':').map(Number);
+  const [endHour, endMinute] = normalizedEnd.split(':').map(Number);
   const start = startHour * 60 + startMinute;
   let end = endHour * 60 + endMinute;
   if (end === start) return 0;
   if (end < start) end += 24 * 60;
   return Math.max(0, (end - start) / 60);
+};
+
+export const addHoursToTime = (startTime = '', hours = 0) => {
+  const normalized = normalizeTime24(startTime);
+  if (!normalized) return '';
+  const [hour, minute] = normalized.split(':').map(Number);
+  const totalMinutes = Math.round(hour * 60 + minute + Math.max(0, safeNumber(hours)) * 60);
+  const wrapped = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
+  return `${String(Math.floor(wrapped / 60)).padStart(2, '0')}:${String(wrapped % 60).padStart(2, '0')}`;
+};
+
+export const timeRangeLabel24 = (startTime = '', endTime = '') => {
+  const start = normalizeTime24(startTime);
+  const end = normalizeTime24(endTime);
+  return start && end ? `${start} – ${end}` : '—';
 };
 
 export const normalizeAttendanceShifts = (settings = {}) => {
@@ -53,13 +79,30 @@ export const defaultAttendanceShift = (settings = {}) => (
 
 export const attendanceFromShift = (employee, date, shift, overrides = {}) => {
   const selectedShift = shift || DEFAULT_ATTENDANCE_SHIFTS[0];
-  const scheduledHours = timeRangeHours(selectedShift.startTime, selectedShift.endTime)
+  const scheduledStart = normalizeTime24(selectedShift.startTime || overrides.scheduledStart);
+  const scheduledEnd = normalizeTime24(selectedShift.endTime || overrides.scheduledEnd);
+  const scheduledHours = timeRangeHours(scheduledStart, scheduledEnd)
     || Math.max(0, safeNumber(employee?.standardDailyHours || 8));
   const status = overrides.status || 'PRESENT';
+
+  let actualStart = normalizeTime24(overrides.actualStart);
+  let actualEnd = normalizeTime24(overrides.actualEnd);
   let actualHours = overrides.actualHours;
-  if (actualHours === undefined || actualHours === null || actualHours === '') {
+
+  if (!actualStart && !actualEnd && !['ABSENT', 'OFF_DAY', 'LEAVE'].includes(status)) {
+    actualStart = scheduledStart;
+    const defaultWorkedHours = actualHours === undefined || actualHours === null || actualHours === ''
+      ? (status === 'HALF_DAY' ? scheduledHours / 2 : status === 'EXTRA_DUTY' ? scheduledHours * 1.5 : scheduledHours)
+      : Math.max(0, safeNumber(actualHours));
+    actualEnd = addHoursToTime(actualStart, defaultWorkedHours);
+  }
+
+  if (actualStart && actualEnd) {
+    actualHours = timeRangeHours(actualStart, actualEnd);
+  } else if (actualHours === undefined || actualHours === null || actualHours === '') {
     actualHours = ['ABSENT', 'OFF_DAY', 'LEAVE'].includes(status) ? 0 : scheduledHours;
   }
+
   return deriveAttendance({
     employeeId: employee?.id || '',
     employeeNumber: employee?.employeeNumber || '',
@@ -73,11 +116,13 @@ export const attendanceFromShift = (employee, date, shift, overrides = {}) => {
     notes: '',
     ...overrides,
     status,
+    actualStart,
+    actualEnd,
     actualHours,
     shiftId: selectedShift.id || 'custom',
     shiftName: selectedShift.name || 'Custom',
-    scheduledStart: selectedShift.startTime || '',
-    scheduledEnd: selectedShift.endTime || '',
+    scheduledStart,
+    scheduledEnd,
     scheduledHours,
   }, employee || {});
 };
@@ -145,17 +190,36 @@ export const eligibleAttendanceDates = (employee, month, throughDate = null) => 
 export const deriveAttendance = (draft, employee = {}) => {
   const payrollType = draft.payrollType || employee.payrollType || PAYROLL_TYPES.MONTHLY;
   const status = draft.status || 'PRESENT';
-  const scheduledHours = Math.max(0, safeNumber(draft.scheduledHours ?? employee.standardDailyHours));
-  const actualHours = Math.max(0, safeNumber(draft.actualHours));
-  const leaveDeductible = Boolean(draft.leaveDeductible);
+  const scheduledStart = normalizeTime24(draft.scheduledStart);
+  const scheduledEnd = normalizeTime24(draft.scheduledEnd);
+  let actualStart = normalizeTime24(draft.actualStart);
+  let actualEnd = normalizeTime24(draft.actualEnd);
+  const scheduledHours = Math.max(0, timeRangeHours(scheduledStart, scheduledEnd)
+    || safeNumber(draft.scheduledHours ?? employee.standardDailyHours));
+  const storedActualHours = Math.max(0, safeNumber(draft.actualHours));
+  // Older attendance records stored only a duration. Display them in 24-hour format
+  // by deriving a check-out time from the scheduled start until the record is edited.
+  if (!actualStart && !actualEnd && storedActualHours > 0 && scheduledStart) {
+    actualStart = scheduledStart;
+    actualEnd = addHoursToTime(scheduledStart, storedActualHours);
+  }
 
+  let actualHours = actualStart && actualEnd
+    ? timeRangeHours(actualStart, actualEnd)
+    : storedActualHours;
+  if (status === 'ABSENT') actualHours = 0;
+  if (status === 'LEAVE' && !actualStart && !actualEnd) actualHours = 0;
+  if (status === 'OFF_DAY' && !actualStart && !actualEnd) actualHours = 0;
+
+  const leaveDeductible = Boolean(draft.leaveDeductible);
   let overtimeHours = 0;
   let missedHours = 0;
 
-  if (status === 'OFF_DAY') {
-    overtimeHours = payrollType === PAYROLL_TYPES.MONTHLY ? actualHours : Math.max(0, actualHours - scheduledHours);
-  } else if (status === 'LEAVE' && !leaveDeductible) {
-    overtimeHours = Math.max(0, actualHours - scheduledHours);
+  // Off days and approved leave never create missed-duty deductions.
+  // Any hours actually worked on those protected days are counted as extra hours.
+  if (status === 'OFF_DAY' || (status === 'LEAVE' && !leaveDeductible)) {
+    overtimeHours = actualHours;
+    missedHours = 0;
   } else {
     overtimeHours = Math.max(0, actualHours - scheduledHours);
     missedHours = Math.max(0, scheduledHours - actualHours);
@@ -164,6 +228,10 @@ export const deriveAttendance = (draft, employee = {}) => {
   return {
     ...draft,
     payrollType,
+    scheduledStart,
+    scheduledEnd,
+    actualStart,
+    actualEnd,
     scheduledHours,
     actualHours,
     overtimeHours,
@@ -182,6 +250,10 @@ export const defaultAttendanceForEmployee = (employee, date) => {
     payrollType: employee.payrollType || PAYROLL_TYPES.MONTHLY,
     date,
     attendanceMonth: dateMonthKey(date),
+    scheduledStart: '08:00',
+    scheduledEnd: addHoursToTime('08:00', scheduledHours),
+    actualStart: '08:00',
+    actualEnd: addHoursToTime('08:00', scheduledHours),
     scheduledHours,
     actualHours: scheduledHours,
     status: 'PRESENT',

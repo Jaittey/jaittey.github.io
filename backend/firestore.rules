@@ -42,6 +42,10 @@ service cloud.firestore {
       return hasAccess() && role() == "user";
     }
 
+    function isDelegatedManager() {
+      return hasAccess() && !isOwner() && role() == "manager";
+    }
+
     function operationalAccess() {
       return isManager() || isUser();
     }
@@ -138,7 +142,16 @@ service cloud.firestore {
 
     match /salarySlips/{id} {
       allow read: if operationalAccess();
-      allow create, update, delete: if isManager();
+      allow create: if isManager();
+      // A Manager can edit or lock an unlocked slip, but cannot edit or unlock it after locking.
+      // The Administrator bypasses this restriction through the owner rule below.
+      allow update, delete: if isDelegatedManager()
+        && (!("locked" in resource.data) || resource.data.locked != true);
+    }
+
+    match /attendanceDocuments/{id} {
+      allow read, create, update: if operationalAccess();
+      allow delete: if isManager();
     }
 
     match /payrollPeriods/{month} {
@@ -182,8 +195,9 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // The fixed Administrator account has complete access, including locked and closed records.
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isOwner();
     }
   }
 }

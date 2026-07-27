@@ -1,7 +1,7 @@
 {
-  "name": "df7-business-v2-1-6-employee-first-payroll",
+  "name": "df7-business-v2-1-7-attendance-slip-lock",
   "private": true,
-  "version": "2.1.6",
+  "version": "2.1.7",
   "type": "module",
   "scripts": {
     "dev": "vite",

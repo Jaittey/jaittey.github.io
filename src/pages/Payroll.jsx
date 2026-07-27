@@ -8,6 +8,7 @@ import {
   saveRecord,
   saveSalarySlipRecord,
   setPayrollMonthStatus,
+  setSalarySlipLock,
 } from '../services/database';
 import { createSalarySlipPdf, downloadBlob, previewBlob } from '../services/pdf';
 import { uploadBusinessPdf } from '../services/drive';
@@ -105,12 +106,16 @@ const slipFormFromPayroll = (employee, month, summary, existing, settings) => ({
   paymentDate: existing?.paymentDate || summary.paymentDate || '',
   paymentMethod: existing?.paymentMethod || summary.paymentMethod || 'Bank Transfer',
   paymentReference: existing?.paymentReference || summary.paymentReference || '',
+  approvalDate: existing?.approvalDate || String(existing?.issuedAt || summary.approvedAt || '').slice(0, 10) || inputDate(),
   managerApproval: existing?.managerApproval || summary.managerApproval || '',
   employeeAcknowledgement: existing?.employeeAcknowledgement || summary.employeeAcknowledgement || '',
   notes: existing?.notes || summary.adjustmentNotes || '',
   status: existing?.status || (summary.status === 'PAID' ? 'PAID' : 'DRAFT'),
   driveFileId: existing?.driveFileId || '',
   driveWebViewLink: existing?.driveWebViewLink || '',
+  locked: Boolean(existing?.locked),
+  lockedAt: existing?.lockedAt || '',
+  lockedBy: existing?.lockedBy || '',
 });
 
 const calculateSlipTotals = (form = {}) => {
@@ -175,7 +180,8 @@ export default function Payroll({
   const [uploadingId, setUploadingId] = useState('');
 
   const normalizedRole = normalizeRole(role);
-  const canManage = ['administrator', 'manager'].includes(normalizedRole);
+  const isAdministrator = normalizedRole === 'administrator';
+  const canManage = isAdministrator || normalizedRole === 'manager';
   const regularPayroll = useMemo(() => payroll.filter((row) => row.recordType !== 'FINAL_SETTLEMENT'), [payroll]);
   const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId) || null;
   const locations = useMemo(() => [...new Set(employees.map((row) => row.workLocation).filter(Boolean))].sort(), [employees]);
@@ -241,8 +247,9 @@ export default function Payroll({
   const selectedSlip = selectedEmployee ? slipForEmployeeMonth(selectedEmployee.id, selectedMonth) : null;
   const selectedPeriod = periodForMonth(selectedMonth);
   const selectedPeriodStatus = selectedPeriod?.status || 'OPEN';
-  const selectedLocked = ['APPROVED', 'CLOSED'].includes(selectedPeriodStatus);
-  const slipEditable = canManage && slipForm?.status !== 'PAID' && selectedPeriodStatus !== 'CLOSED';
+  const selectedLocked = ['APPROVED', 'CLOSED'].includes(selectedPeriodStatus) && !isAdministrator;
+  const slipIsLocked = Boolean(slipForm?.locked);
+  const slipEditable = canManage && (!slipIsLocked || isAdministrator);
 
   useEffect(() => {
     if (initialEmployee) {
@@ -303,7 +310,7 @@ export default function Payroll({
 
   const calculateAllEmployees = async (month = listMonth, showConfirmation = true) => {
     if (!canManage) return notify('Only a Manager can calculate payroll.', 'error');
-    if (['APPROVED', 'CLOSED'].includes(periodForMonth(month)?.status)) return notify('Reopen this month before recalculating payroll.', 'error');
+    if (['APPROVED', 'CLOSED'].includes(periodForMonth(month)?.status) && !isAdministrator) return notify('Reopen this month before recalculating payroll.', 'error');
     const { end } = monthBounds(month);
     const monthEnd = inputDate(end);
     const eligible = employees.filter((employee) => employee.status === 'ACTIVE' && (!employee.joiningDate || employee.joiningDate <= monthEnd));
@@ -326,7 +333,7 @@ export default function Payroll({
 
   const approveMonth = async (month) => {
     if (!canManage) return;
-    if (periodForMonth(month)?.status !== 'OPEN' && periodForMonth(month)) return notify('Only an open payroll month can be approved.', 'error');
+    if (periodForMonth(month)?.status !== 'OPEN' && periodForMonth(month) && !isAdministrator) return notify('Only an open payroll month can be approved.', 'error');
     const { end } = monthBounds(month);
     const eligible = employees.filter((employee) => employee.status === 'ACTIVE' && (!employee.joiningDate || employee.joiningDate <= inputDate(end)));
     const missingCount = eligible.reduce((total, employee) => total + missingAttendanceDates(employee, month, recordsForEmployeeMonth(employee.id, month)).length, 0);
@@ -370,7 +377,9 @@ export default function Payroll({
   const openEdit = () => {
     if (!selectedEmployee || !selectedSummary) return;
     if (!canManage) return notify('Users can view payroll but only Managers can edit calculations.', 'error');
-    if (selectedLocked || ['APPROVED', 'PAID', 'CLOSED'].includes(selectedSummary.status)) return notify('Reopen this payroll month before editing.', 'error');
+    if (!isAdministrator && (selectedLocked || ['APPROVED', 'PAID', 'CLOSED'].includes(selectedSummary.status))) {
+      return notify('Reopen this payroll month before editing.', 'error');
+    }
     setEditForm(initialEditForm(selectedSummary));
     setMonthMenuOpen(false);
     setEditOpen(true);
@@ -389,9 +398,11 @@ export default function Payroll({
   const saveEdit = async () => {
     if (!selectedEmployee) return;
     try {
-      await saveCalculatedRecord(selectedEmployee, selectedMonth, editForm, 'DRAFT');
+      const existing = payrollForEmployeeMonth(selectedEmployee.id, selectedMonth);
+      const nextStatus = isAdministrator && existing?.status ? existing.status : 'DRAFT';
+      await saveCalculatedRecord(selectedEmployee, selectedMonth, editForm, nextStatus);
       setEditOpen(false);
-      notify('Payroll details saved as draft.');
+      notify(isAdministrator && nextStatus !== 'DRAFT' ? `Payroll updated with ${nextStatus} status preserved.` : 'Payroll details saved as draft.');
     } catch (reason) {
       notify(reason?.message || 'Could not save payroll details.', 'error');
     }
@@ -413,25 +424,30 @@ export default function Payroll({
   };
 
   const saveSlip = async (status = 'DRAFT') => {
-    if (!slipEditable) return notify('This salary slip is locked. Reopen the month before changing an issued slip.', 'error');
+    if (!slipEditable) return notify('This salary slip is locked. Only the Administrator can edit or unlock it.', 'error');
     if (!selectedEmployee || !slipForm) return;
     const totals = calculateSlipTotals(slipForm);
     if (Math.abs(totals.difference) > 0.009 && !String(slipForm.adjustmentReason || '').trim()) {
       return notify('Enter a reason because the issued salary differs from the calculated payroll.', 'error');
     }
-    if (status === 'APPROVED' && !['APPROVED', 'PAID'].includes(selectedSummary?.status)) {
-      return notify('Approve the payroll month before issuing the salary slip.', 'error');
+    if (status === 'APPROVED' && !slipForm.approvalDate) {
+      return notify('Select the salary-slip approval date. Backdated approval dates are allowed.', 'error');
     }
     try {
+      const remainsPaid = slipForm.paymentStatus === 'PAID' || slipForm.status === 'PAID';
+      const nextStatus = remainsPaid ? 'PAID' : (slipForm.status === 'APPROVED' && status === 'DRAFT' ? 'APPROVED' : status);
+      const approvalDate = slipForm.approvalDate || inputDate();
       const id = await saveSalarySlipRecord({
         ...slipForm,
         ...totals,
-        status,
-        paymentStatus: status === 'PAID' ? 'PAID' : slipForm.paymentStatus,
-        issuedAt: status === 'APPROVED' ? new Date().toISOString() : slipForm.issuedAt || '',
+        status: nextStatus,
+        paymentStatus: remainsPaid ? 'PAID' : slipForm.paymentStatus,
+        approvalDate,
+        approvedBy: status === 'APPROVED' ? (slipForm.managerApproval || '') : slipForm.approvedBy || '',
+        issuedAt: status === 'APPROVED' ? `${approvalDate}T00:00:00` : slipForm.issuedAt || '',
       }, selectedSlip?.id || slipForm.id || null);
-      setSlipForm((current) => ({ ...current, ...totals, id, status }));
-      notify(status === 'APPROVED' ? 'Salary slip approved and permanently saved.' : 'Salary slip saved as draft.');
+      setSlipForm((current) => ({ ...current, ...totals, id, status: nextStatus, approvalDate }));
+      notify(status === 'APPROVED' ? `Salary slip approved for ${dateText(approvalDate)}.` : remainsPaid ? 'Paid salary slip changes saved.' : 'Salary slip saved as draft.');
     } catch (reason) {
       notify(reason?.message || 'Could not save the salary slip.', 'error');
     }
@@ -475,18 +491,34 @@ export default function Payroll({
     }
   };
 
-  const reopenSlip = async () => {
-    if (!canManage || !slipForm?.id || selectedPeriodStatus !== 'OPEN') return;
-    if (!confirm('Reopen this salary slip for editing? Its payment status will return to Unpaid until it is approved and paid again.')) return;
-    await saveSalarySlipRecord({
-      status: 'DRAFT',
-      paymentStatus: 'UNPAID',
-      paymentDate: '',
-      paidAt: '',
-      reopenedAt: new Date().toISOString(),
-    }, slipForm.id);
-    setSlipForm((current) => ({ ...current, status: 'DRAFT', paymentStatus: 'UNPAID', paymentDate: '' }));
-    notify('Salary slip reopened for editing.');
+  const lockSlip = async () => {
+    if (!canManage || !slipForm) return;
+    if (slipForm.paymentStatus !== 'PAID' && slipForm.status !== 'PAID') return notify('Mark the salary slip as paid before locking it.', 'error');
+    let slipId = slipForm.id || selectedSlip?.id;
+    if (!slipId) {
+      const totals = calculateSlipTotals(slipForm);
+      slipId = await saveSalarySlipRecord({ ...slipForm, ...totals }, null);
+    }
+    if (!confirm('Lock this salary slip? Managers will no longer be able to edit it. Only the Administrator can unlock it.')) return;
+    try {
+      await setSalarySlipLock(slipId, true);
+      setSlipForm((current) => ({ ...current, id: slipId, locked: true, lockedBy: role }));
+      notify('Salary slip locked. Only the Administrator can unlock it.');
+    } catch (reason) {
+      notify(reason?.message || 'Could not lock the salary slip.', 'error');
+    }
+  };
+
+  const unlockSlip = async () => {
+    if (!isAdministrator || !slipForm?.id) return;
+    if (!confirm('Administrator override: unlock this salary slip for editing?')) return;
+    try {
+      await setSalarySlipLock(slipForm.id, false);
+      setSlipForm((current) => ({ ...current, locked: false, unlockedAt: new Date().toISOString() }));
+      notify('Salary slip unlocked by the Administrator.');
+    } catch (reason) {
+      notify(reason?.message || 'Could not unlock the salary slip.', 'error');
+    }
   };
 
   const openPayment = async () => {
@@ -675,7 +707,7 @@ export default function Payroll({
         <div className="payroll-action-summary-grid"><div><span>Working days</span><b>{selectedSummary.totalWorkingDays || 0}</b></div><div><span>Total hours</span><b>{safeNumber(selectedSummary.totalHoursWorked).toFixed(2)}</b></div><div><span>Overtime</span><b>{safeNumber(selectedSummary.totalOvertimeHours).toFixed(2)}</b></div><div><span>Missed</span><b>{safeNumber(selectedSummary.totalMissedHours).toFixed(2)}</b></div></div>
         {selectedSummary.missingAttendanceCount > 0 && <div className="alert alert-error">{selectedSummary.missingAttendanceCount} attendance date(s) are missing for this employee.</div>}
         <div className="payroll-month-main-actions">
-          <button className="payroll-big-action" disabled={!canManage || selectedLocked || ['APPROVED', 'PAID', 'CLOSED'].includes(selectedSummary.status)} onClick={openEdit}><span>✎</span><div><strong>Edit Payroll</strong><small>Paid/unpaid days, leave and adjustments</small></div></button>
+          <button className="payroll-big-action" disabled={!canManage || (!isAdministrator && (selectedLocked || ['APPROVED', 'PAID', 'CLOSED'].includes(selectedSummary.status)))} onClick={openEdit}><span>✎</span><div><strong>Edit Payroll</strong><small>Paid/unpaid days, leave and adjustments</small></div></button>
           <button className="payroll-big-action" onClick={openSalarySlip}><span>▣</span><div><strong>Salary Slip</strong><small>Edit, preview, print and issue</small></div></button>
         </div>
         {canManage && <div className="row-actions payroll-month-admin-actions">
@@ -715,8 +747,11 @@ export default function Payroll({
 
     <Modal open={slipOpen} title={`Salary Slip · ${salaryMonthLabel(selectedMonth)}`} onClose={() => setSlipOpen(false)}>
       {slipForm && <div className="salary-slip-editor">
-        <div className="salary-slip-editor-status"><div><small>Calculated payroll</small><strong>{currency(slipForm.calculatedPayrollAmount, settings.currency || 'MVR')}</strong></div><div><small>Salary slip total</small><strong>{currency(slipForm.issuedSalaryAmount, settings.currency || 'MVR')}</strong></div><span className={`salary-difference ${Math.abs(slipForm.difference) > 0.009 ? 'changed' : ''}`}>{slipForm.difference >= 0 ? '+' : '−'} {currency(Math.abs(slipForm.difference), settings.currency || 'MVR')}</span></div>
-        {!slipEditable && <div className="alert alert-info">This salary slip is read-only. Paid slips and slips inside closed payroll months cannot be changed.</div>}
+        <div className="salary-slip-editor-status"><div><small>Calculated payroll</small><strong>{currency(slipForm.calculatedPayrollAmount, settings.currency || 'MVR')}</strong></div><div><small>Salary slip total</small><strong>{currency(slipForm.issuedSalaryAmount, settings.currency || 'MVR')}</strong></div><span className={`salary-difference ${Math.abs(slipForm.difference) > 0.009 ? 'changed' : ''}`}>{slipForm.difference >= 0 ? '+' : '−'} {currency(Math.abs(slipForm.difference), settings.currency || 'MVR')}</span>{slipIsLocked && <span className="salary-slip-lock-badge">🔒 Locked</span>}</div>
+        {slipIsLocked && !isAdministrator && <div className="alert alert-error">This salary slip is locked. Only the Administrator can unlock or edit it.</div>}
+        {slipIsLocked && isAdministrator && <div className="alert alert-info">Administrator override is active. This locked salary slip can be edited or unlocked.</div>}
+        {!canManage && <div className="alert alert-info">This salary slip is view-only for User accounts.</div>}
+        {!slipIsLocked && slipForm.paymentStatus === 'PAID' && canManage && <div className="alert alert-info">This paid salary slip remains editable until a Manager or Administrator locks it.</div>}
         <details open className="payroll-editor-section"><summary>Employee and slip details</summary><div className="form-grid">
           <label><span>Salary slip number</span><input disabled={!slipEditable} value={slipForm.salarySlipNumber} onChange={(event) => updateSlip({ salarySlipNumber: event.target.value })} /></label>
           <label><span>Salary month</span><input type="month" disabled value={slipForm.salaryMonth} /></label>
@@ -746,19 +781,21 @@ export default function Payroll({
           <label className="form-span-2"><span>Reason for salary-slip difference</span><textarea rows="3" disabled={!slipEditable} value={slipForm.adjustmentReason} onChange={(event) => updateSlip({ adjustmentReason: event.target.value })} placeholder="Required when the issued total differs from payroll…" /></label>
         </div></details>
         <details className="payroll-editor-section"><summary>Approval and notes</summary><div className="form-grid">
+          <label><span>Slip approval date</span><input type="date" disabled={!slipEditable} value={slipForm.approvalDate || ''} onChange={(event) => updateSlip({ approvalDate: event.target.value })} /><small>Past dates are allowed.</small></label>
           <label><span>Manager approval</span><input disabled={!slipEditable} value={slipForm.managerApproval} onChange={(event) => updateSlip({ managerApproval: event.target.value })} /></label>
           <label><span>Employee acknowledgement</span><input disabled={!slipEditable} value={slipForm.employeeAcknowledgement} onChange={(event) => updateSlip({ employeeAcknowledgement: event.target.value })} /></label>
           <label className="form-span-2"><span>Remarks</span><textarea rows="3" disabled={!slipEditable} value={slipForm.notes} onChange={(event) => updateSlip({ notes: event.target.value })} /></label>
         </div></details>
         <div className="salary-slip-fixed-total"><span>NET SALARY</span><strong>{currency(slipForm.issuedSalaryAmount, settings.currency || 'MVR')}</strong></div>
         <div className="salary-slip-action-grid">
-          {slipEditable && <button className="button button-secondary" onClick={() => saveSlip('DRAFT')}>Save Draft</button>}
-          {slipEditable && <button className="button button-primary" onClick={() => saveSlip('APPROVED')}>Approve Slip</button>}
+          {slipEditable && <button className="button button-secondary" onClick={() => saveSlip('DRAFT')}>{slipForm.status === 'DRAFT' ? 'Save Draft' : 'Save Changes'}</button>}
+          {slipEditable && !['APPROVED', 'PAID'].includes(slipForm.status) && <button className="button button-primary" onClick={() => saveSlip('APPROVED')}>Approve Slip</button>}
           <button className="button button-secondary" onClick={previewSlip}>View / Print</button>
           <button className="button button-secondary" onClick={downloadSlip}>Download PDF</button>
-          {canManage && <button className="button button-secondary" disabled={uploadingId === (slipForm.id || 'new')} onClick={uploadSlip}>{slipForm.driveFileId ? 'Replace Drive' : 'Google Drive'}</button>}
+          {canManage && (!slipIsLocked || isAdministrator) && <button className="button button-secondary" disabled={uploadingId === (slipForm.id || 'new')} onClick={uploadSlip}>{slipForm.driveFileId ? 'Replace Drive' : 'Google Drive'}</button>}
           {slipForm.driveWebViewLink && <a className="button button-ghost" href={slipForm.driveWebViewLink} target="_blank" rel="noreferrer">Open Drive</a>}
-          {canManage && !slipEditable && selectedPeriodStatus === 'OPEN' && slipForm.id && <button className="button button-secondary" onClick={reopenSlip}>Reopen Slip</button>}
+          {canManage && !slipIsLocked && (slipForm.paymentStatus === 'PAID' || slipForm.status === 'PAID') && <button className="button button-lock" onClick={lockSlip}>🔒 Lock Slip</button>}
+          {isAdministrator && slipIsLocked && <button className="button button-unlock" onClick={unlockSlip}>🔓 Unlock Slip</button>}
           {canManage && ['APPROVED', 'PAID'].includes(selectedSummary?.status) && slipForm.paymentStatus !== 'PAID' && <button className="button button-primary" onClick={openPayment}>Mark Paid</button>}
         </div>
       </div>}

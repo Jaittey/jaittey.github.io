@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
-import { deleteRecord, saveAttendanceBatch, savePayrollRecord } from '../services/database';
+import { deleteRecord, saveAttendanceBatch, saveAttendanceDocumentRecord, savePayrollRecord } from '../services/database';
 import { dateText, inputDate, safeNumber, salaryMonthLabel } from '../utils/format';
+import { createAttendanceReportPdf, createAttendanceSlipPdf, downloadBlob, previewBlob } from '../services/pdf';
 import {
   ATTENDANCE_STATUSES,
   PAYROLL_TYPES,
+  addHoursToTime,
   attendanceFromShift,
   attendanceStatusLabel,
   calculateAttendancePayroll,
@@ -17,6 +19,7 @@ import {
   payrollTypeLabel,
   summarizeAttendance,
   timeRangeHours,
+  timeRangeLabel24,
 } from '../utils/payroll';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -63,15 +66,17 @@ export default function Attendance({
   const [missingOpen, setMissingOpen] = useState(false);
   const [missingDrafts, setMissingDrafts] = useState({});
   const [saving, setSaving] = useState(false);
+  const [documentBusy, setDocumentBusy] = useState('');
 
   const shifts = useMemo(() => normalizeAttendanceShifts(attendanceSettings).filter((shift) => shift.active), [attendanceSettings]);
   const defaultShift = useMemo(() => defaultAttendanceShift(attendanceSettings), [attendanceSettings]);
   const monthRecords = useMemo(() => attendance.filter((row) => (row.attendanceMonth || dateMonthKey(row.date)) === selectedMonth), [attendance, selectedMonth]);
   const period = payrollPeriods.find((row) => row.id === selectedMonth || row.month === selectedMonth);
   const periodStatus = period?.status || 'OPEN';
-  const locked = ['APPROVED', 'CLOSED'].includes(periodStatus);
-  const manager = role === 'manager' || role === 'administrator';
   const administrator = role === 'administrator';
+  const lockedByPeriod = ['APPROVED', 'CLOSED'].includes(periodStatus);
+  const locked = lockedByPeriod && !administrator;
+  const manager = role === 'manager' || administrator;
 
   const employeesForMonth = useMemo(() => {
     const monthEnd = `${selectedMonth}-31`;
@@ -177,6 +182,8 @@ export default function Attendance({
       scheduledStart: existingRecord?.scheduledStart || initialShift.startTime,
       scheduledEnd: existingRecord?.scheduledEnd || initialShift.endTime,
       status: existingRecord?.status || 'PRESENT',
+      actualStart: existingRecord?.actualStart || (existingRecord && safeNumber(existingRecord.actualHours) <= 0 ? '' : initialShift.startTime),
+      actualEnd: existingRecord?.actualEnd || (existingRecord && safeNumber(existingRecord.actualHours) <= 0 ? '' : addHoursToTime(initialShift.startTime, existingRecord?.actualHours ?? scheduledHours)),
       actualHours: existingRecord?.actualHours ?? scheduledHours,
       leaveDeductible: Boolean(existingRecord?.leaveDeductible),
       notes: existingRecord?.notes || '',
@@ -190,19 +197,30 @@ export default function Attendance({
     }
     const shift = shifts.find((row) => row.id === shiftId) || defaultShift;
     const hours = timeRangeHours(shift.startTime, shift.endTime);
+    const workedHours = statusDefaultHours(dayEditor?.status || 'PRESENT', hours);
     setDayEditor((current) => ({
       ...current,
       shiftId: shift.id,
       shiftName: shift.name,
       scheduledStart: shift.startTime,
       scheduledEnd: shift.endTime,
-      actualHours: statusDefaultHours(current.status, hours),
+      actualStart: workedHours > 0 ? shift.startTime : '',
+      actualEnd: workedHours > 0 ? addHoursToTime(shift.startTime, workedHours) : '',
+      actualHours: workedHours,
     }));
   };
 
   const updateEditorStatus = (status) => {
     const hours = timeRangeHours(dayEditor.scheduledStart, dayEditor.scheduledEnd) || safeNumber(selectedEmployee?.standardDailyHours || 8);
-    setDayEditor((current) => ({ ...current, status, actualHours: statusDefaultHours(status, hours), leaveDeductible: status === 'LEAVE' ? current.leaveDeductible : false }));
+    const workedHours = statusDefaultHours(status, hours);
+    setDayEditor((current) => ({
+      ...current,
+      status,
+      actualStart: workedHours > 0 ? current.scheduledStart : '',
+      actualEnd: workedHours > 0 ? addHoursToTime(current.scheduledStart, workedHours) : '',
+      actualHours: workedHours,
+      leaveDeductible: status === 'LEAVE' ? current.leaveDeductible : false,
+    }));
   };
 
   const saveDayEditor = async () => {
@@ -219,7 +237,9 @@ export default function Attendance({
       endTime: dayEditor.scheduledEnd,
     }, {
       status: dayEditor.status,
-      actualHours: safeNumber(dayEditor.actualHours),
+      actualStart: dayEditor.actualStart,
+      actualEnd: dayEditor.actualEnd,
+      actualHours: dayEditor.actualStart && dayEditor.actualEnd ? timeRangeHours(dayEditor.actualStart, dayEditor.actualEnd) : 0,
       leaveDeductible: Boolean(dayEditor.leaveDeductible),
       notes: dayEditor.notes,
       enteredByRole: role,
@@ -232,9 +252,14 @@ export default function Attendance({
     if (shiftId === 'custom') return openDay(date, existingRecord);
     const shift = shifts.find((row) => row.id === shiftId);
     if (!shift || !selectedEmployee) return;
+    const nextStatus = existingRecord?.status || 'PRESENT';
+    const scheduledHours = timeRangeHours(shift.startTime, shift.endTime);
+    const workedHours = statusDefaultHours(nextStatus, scheduledHours);
     const record = attendanceFromShift(selectedEmployee, date, shift, {
-      status: existingRecord?.status || 'PRESENT',
-      actualHours: existingRecord?.actualHours,
+      status: nextStatus,
+      actualStart: workedHours > 0 ? shift.startTime : '',
+      actualEnd: workedHours > 0 ? addHoursToTime(shift.startTime, workedHours) : '',
+      actualHours: workedHours,
       leaveDeductible: Boolean(existingRecord?.leaveDeductible),
       notes: existingRecord?.notes || '',
       enteredByRole: role,
@@ -264,6 +289,8 @@ export default function Attendance({
       startTime: defaultShift.startTime,
       endTime: defaultShift.endTime,
       status: 'PRESENT',
+      actualStart: defaultShift.startTime,
+      actualEnd: defaultShift.endTime,
       actualHours: hours,
     }])));
     setMissingOpen(true);
@@ -277,7 +304,7 @@ export default function Attendance({
     if (shiftId === 'custom') return updateMissing(date, { shiftId: 'custom' });
     const shift = shifts.find((row) => row.id === shiftId) || defaultShift;
     const hours = timeRangeHours(shift.startTime, shift.endTime);
-    updateMissing(date, { shiftId: shift.id, startTime: shift.startTime, endTime: shift.endTime, actualHours: hours });
+    updateMissing(date, { shiftId: shift.id, startTime: shift.startTime, endTime: shift.endTime, actualStart: shift.startTime, actualEnd: shift.endTime, actualHours: hours });
   };
 
   const applyShiftToMissing = (shift) => {
@@ -287,6 +314,8 @@ export default function Attendance({
       shiftId: shift.id,
       startTime: shift.startTime,
       endTime: shift.endTime,
+      actualStart: statusDefaultHours(draft.status, hours) > 0 ? shift.startTime : '',
+      actualEnd: statusDefaultHours(draft.status, hours) > 0 ? addHoursToTime(shift.startTime, statusDefaultHours(draft.status, hours)) : '',
       actualHours: statusDefaultHours(draft.status, hours),
     } : draft])));
   };
@@ -300,12 +329,58 @@ export default function Attendance({
         : shifts.find((row) => row.id === draft.shiftId) || defaultShift;
       return attendanceFromShift(selectedEmployee, date, shift, {
         status: draft.status,
-        actualHours: safeNumber(draft.actualHours),
+        actualStart: draft.actualStart,
+        actualEnd: draft.actualEnd,
+        actualHours: draft.actualStart && draft.actualEnd ? timeRangeHours(draft.actualStart, draft.actualEnd) : 0,
         enteredByRole: role,
       });
     });
     if (records.some((record) => record.scheduledHours <= 0)) return notify('One or more custom shifts have invalid times.', 'error');
     if (await saveRecords(records, `${records.length} missing attendance date${records.length === 1 ? '' : 's'} completed for ${selectedEmployee.name}.`)) setMissingOpen(false);
+  };
+
+  const createAttendanceDocument = async (documentType, action = 'preview') => {
+    if (!selectedEmployee || !selectedRow) return;
+    const key = `${documentType}-${action}`;
+    setDocumentBusy(key);
+    try {
+      const payload = {
+        employee: selectedEmployee,
+        month: selectedMonth,
+        records: [...selectedRow.records].sort((a, b) => String(a.date).localeCompare(String(b.date))),
+        summary: selectedRow.summary,
+      };
+      const blob = documentType === 'REPORT'
+        ? await createAttendanceReportPdf(payload, settings)
+        : await createAttendanceSlipPdf(payload, settings);
+      const number = `ATT-${documentType === 'REPORT' ? 'RPT' : 'SLIP'}-${selectedMonth.replace('-', '')}-${selectedEmployee.employeeNumber || selectedEmployee.id}`
+        .replace(/[^a-zA-Z0-9_-]/g, '-').toUpperCase();
+      await saveAttendanceDocumentRecord({
+        employeeId: selectedEmployee.id,
+        employeeNumber: selectedEmployee.employeeNumber || '',
+        employeeName: selectedEmployee.name || '',
+        designation: selectedEmployee.designation || '',
+        workLocation: selectedEmployee.workLocation || '',
+        attendanceMonth: selectedMonth,
+        documentType,
+        documentNumber: number,
+        totalRecords: selectedRow.summary.totalRecords,
+        totalHoursWorked: selectedRow.summary.totalHoursWorked,
+        totalOvertimeHours: selectedRow.summary.totalOvertimeHours,
+        totalMissedHours: selectedRow.summary.totalMissedHours,
+        generatedAt: new Date().toISOString(),
+      });
+      if (action === 'download') {
+        downloadBlob(blob, `${number}.pdf`);
+        notify(`${documentType === 'REPORT' ? 'Attendance report' : 'Attendance slip'} downloaded.`);
+      } else {
+        previewBlob(blob);
+      }
+    } catch (reason) {
+      notify(reason?.message || 'Could not generate the attendance document.', 'error');
+    } finally {
+      setDocumentBusy('');
+    }
   };
 
   if (!selectedEmployee) {
@@ -332,6 +407,7 @@ export default function Attendance({
         </section>
 
         {locked && <div className="alert alert-error">{salaryMonthLabel(selectedMonth)} attendance is locked because payroll is {periodStatus}.</div>}
+        {administrator && lockedByPeriod && <div className="alert alert-info">Administrator override is active. You can correct attendance even though this payroll month is {periodStatus}.</div>}
 
         <div className="attendance-employee-search"><input value={employeeQuery} onChange={(event) => setEmployeeQuery(event.target.value)} placeholder="Search employee, ID, designation or location…" /></div>
 
@@ -353,7 +429,7 @@ export default function Attendance({
                 <button className="button button-primary" onClick={(event) => { event.stopPropagation(); setSelectedEmployeeId(employee.id); }}>Open attendance</button>
                 <button className="button button-ghost" disabled={!missing.length} onClick={(event) => { event.stopPropagation(); setSelectedEmployeeId(employee.id); setTimeout(() => {
                   const defaultHours = timeRangeHours(defaultShift.startTime, defaultShift.endTime);
-                  setMissingDrafts(Object.fromEntries(missing.map((date) => [date, { selected: true, shiftId: defaultShift.id, startTime: defaultShift.startTime, endTime: defaultShift.endTime, status: 'PRESENT', actualHours: defaultHours }])));
+                  setMissingDrafts(Object.fromEntries(missing.map((date) => [date, { selected: true, shiftId: defaultShift.id, startTime: defaultShift.startTime, endTime: defaultShift.endTime, status: 'PRESENT', actualStart: defaultShift.startTime, actualEnd: defaultShift.endTime, actualHours: defaultHours }])));
                   setMissingOpen(true);
                 }, 0); }}>Missing Attendance Dates</button>
               </div>
@@ -385,10 +461,17 @@ export default function Attendance({
         <div className="employee-attendance-actions">
           <input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} />
           <button className={`button ${missing.length ? 'button-primary' : 'button-secondary'}`} disabled={!missing.length || locked} onClick={openMissing}>Missing Attendance Dates ({missing.length})</button>
+          <div className="attendance-document-actions">
+            <button className="button button-secondary" disabled={Boolean(documentBusy)} onClick={() => createAttendanceDocument('REPORT', 'preview')}>View Report</button>
+            <button className="button button-secondary" disabled={Boolean(documentBusy)} onClick={() => createAttendanceDocument('REPORT', 'download')}>Report PDF</button>
+            <button className="button button-ghost" disabled={Boolean(documentBusy)} onClick={() => createAttendanceDocument('SLIP', 'preview')}>View Slip</button>
+            <button className="button button-ghost" disabled={Boolean(documentBusy)} onClick={() => createAttendanceDocument('SLIP', 'download')}>Slip PDF</button>
+          </div>
         </div>
       </section>
 
       {locked && <div className="alert alert-error">This month is {periodStatus}. Attendance can be viewed but not changed.</div>}
+      {administrator && lockedByPeriod && <div className="alert alert-info">Administrator override is active. Changes are allowed and will be recorded in the activity log.</div>}
 
       <section className="employee-attendance-summary">
         <article><small>Working days</small><strong>{summary.totalWorkingDays}</strong></article>
@@ -409,6 +492,7 @@ export default function Attendance({
           {calendarCells.map((cell) => {
             if (cell.blank) return <div className="attendance-calendar-blank" key={cell.key} />;
             const record = selectedRecordsByDate[cell.date];
+            const calculatedRecord = record ? deriveAttendance(record, selectedEmployee) : null;
             const existingShift = shifts.find((shift) => shift.id === record?.shiftId);
             const eligible = (!selectedEmployee.joiningDate || selectedEmployee.joiningDate <= cell.date)
               && (!selectedEmployee.lastWorkingDate || selectedEmployee.lastWorkingDate >= cell.date);
@@ -418,7 +502,11 @@ export default function Attendance({
               <article className={`attendance-calendar-day ${record ? 'recorded' : 'missing-day'} ${!eligible ? 'not-eligible' : ''}`} key={cell.date} onClick={() => eligible && openDay(cell.date, record)}>
                 <header><strong>{dayNumber(cell.date)}</strong><small>{WEEKDAYS[new Date(`${cell.date}T00:00:00`).getDay()]}</small>{record && <span className={`attendance-status-dot status-${String(record.status || 'PRESENT').toLowerCase()}`} />}</header>
                 <div className="calendar-shift-summary"><b>{shiftLabel}</b><span>{timeLabel || (eligible ? 'Choose a shift' : 'Not employed')}</span></div>
-                {record && <div className="calendar-hours"><span>{safeNumber(record.actualHours).toFixed(1)} hrs</span><small>{attendanceStatusLabel(record.status)}</small></div>}
+                {calculatedRecord && <div className="calendar-hours">
+                  <span>{calculatedRecord.actualStart && calculatedRecord.actualEnd ? timeRangeLabel24(calculatedRecord.actualStart, calculatedRecord.actualEnd) : `${safeNumber(calculatedRecord.actualHours).toFixed(2)} hrs`}</span>
+                  <small>{attendanceStatusLabel(calculatedRecord.status)} · {safeNumber(calculatedRecord.actualHours).toFixed(2)} hrs</small>
+                  {(safeNumber(calculatedRecord.overtimeHours) > 0 || safeNumber(calculatedRecord.missedHours) > 0) && <em>OT {safeNumber(calculatedRecord.overtimeHours).toFixed(2)} · Missed {safeNumber(calculatedRecord.missedHours).toFixed(2)}</em>}
+                </div>}
                 {eligible && !locked && <select className="calendar-quick-shift" value={record?.shiftId && shifts.some((shift) => shift.id === record.shiftId) ? record.shiftId : (record ? 'custom' : '')} onClick={(event) => event.stopPropagation()} onChange={(event) => assignQuickShift(cell.date, event.target.value, record)}>
                   <option value="">Quick shift…</option>
                   {shifts.map((shift) => <option value={shift.id} key={shift.id}>{shift.name} · {shift.startTime}–{shift.endTime}</option>)}
@@ -440,11 +528,14 @@ export default function Attendance({
 
           <div className="form-grid attendance-editor-form">
             <label><span>Attendance status</span><select disabled={locked} value={dayEditor.status} onChange={(event) => updateEditorStatus(event.target.value)}>{ATTENDANCE_STATUSES.map((status) => <option value={status} key={status}>{attendanceStatusLabel(status)}</option>)}</select></label>
-            <label><span>Actual hours worked</span><input disabled={locked} type="number" min="0" step="0.25" value={dayEditor.actualHours} onChange={(event) => setDayEditor((current) => ({ ...current, actualHours: event.target.value }))} /></label>
-            <label><span>Duty start</span><input disabled={locked} type="time" value={dayEditor.scheduledStart} onChange={(event) => setDayEditor((current) => ({ ...current, shiftId: 'custom', shiftName: 'Custom', scheduledStart: event.target.value }))} /></label>
-            <label><span>Duty end</span><input disabled={locked} type="time" value={dayEditor.scheduledEnd} onChange={(event) => setDayEditor((current) => ({ ...current, shiftId: 'custom', shiftName: 'Custom', scheduledEnd: event.target.value }))} /></label>
-            <div className="attendance-editor-calculation"><span>Scheduled</span><strong>{timeRangeHours(dayEditor.scheduledStart, dayEditor.scheduledEnd).toFixed(2)} hrs</strong></div>
-            <div className="attendance-editor-calculation"><span>Extra / missed</span><strong>{Math.max(0, safeNumber(dayEditor.actualHours) - timeRangeHours(dayEditor.scheduledStart, dayEditor.scheduledEnd)).toFixed(2)} / {Math.max(0, timeRangeHours(dayEditor.scheduledStart, dayEditor.scheduledEnd) - safeNumber(dayEditor.actualHours)).toFixed(2)} hrs</strong></div>
+            <label><span>Scheduled start (24-hour)</span><input disabled={locked} type="time" step="60" value={dayEditor.scheduledStart} onChange={(event) => setDayEditor((current) => ({ ...current, shiftId: 'custom', shiftName: 'Custom', scheduledStart: event.target.value }))} /></label>
+            <label><span>Scheduled end (24-hour)</span><input disabled={locked} type="time" step="60" value={dayEditor.scheduledEnd} onChange={(event) => setDayEditor((current) => ({ ...current, shiftId: 'custom', shiftName: 'Custom', scheduledEnd: event.target.value }))} /></label>
+            <label><span>Actual check-in (24-hour)</span><input disabled={locked} type="time" step="60" value={dayEditor.actualStart || ''} onChange={(event) => setDayEditor((current) => ({ ...current, actualStart: event.target.value, actualHours: event.target.value && current.actualEnd ? timeRangeHours(event.target.value, current.actualEnd) : 0 }))} /></label>
+            <label><span>Actual check-out (24-hour)</span><input disabled={locked} type="time" step="60" value={dayEditor.actualEnd || ''} onChange={(event) => setDayEditor((current) => ({ ...current, actualEnd: event.target.value, actualHours: current.actualStart && event.target.value ? timeRangeHours(current.actualStart, event.target.value) : 0 }))} /></label>
+            <div className="attendance-editor-calculation"><span>Scheduled</span><strong>{timeRangeLabel24(dayEditor.scheduledStart, dayEditor.scheduledEnd)} · {timeRangeHours(dayEditor.scheduledStart, dayEditor.scheduledEnd).toFixed(2)} hrs</strong></div>
+            <div className="attendance-editor-calculation"><span>Actual</span><strong>{dayEditor.actualStart && dayEditor.actualEnd ? timeRangeLabel24(dayEditor.actualStart, dayEditor.actualEnd) : 'No worked time'} · {(dayEditor.actualStart && dayEditor.actualEnd ? timeRangeHours(dayEditor.actualStart, dayEditor.actualEnd) : 0).toFixed(2)} hrs</strong></div>
+            <div className="attendance-editor-calculation"><span>Overtime</span><strong>{deriveAttendance({ ...dayEditor, scheduledHours: timeRangeHours(dayEditor.scheduledStart, dayEditor.scheduledEnd) }, selectedEmployee).overtimeHours.toFixed(2)} hrs</strong></div>
+            <div className="attendance-editor-calculation"><span>Missed hours</span><strong>{deriveAttendance({ ...dayEditor, scheduledHours: timeRangeHours(dayEditor.scheduledStart, dayEditor.scheduledEnd) }, selectedEmployee).missedHours.toFixed(2)} hrs</strong></div>
             {dayEditor.status === 'LEAVE' && (selectedEmployee.payrollType || PAYROLL_TYPES.MONTHLY) === PAYROLL_TYPES.MONTHLY && <label className="checkbox-label form-span-2"><input disabled={locked} type="checkbox" checked={dayEditor.leaveDeductible} onChange={(event) => setDayEditor((current) => ({ ...current, leaveDeductible: event.target.checked }))} /><span>Deduct missed hours for this leave</span></label>}
             <label className="form-span-2"><span>Notes</span><textarea disabled={locked} rows="3" value={dayEditor.notes} onChange={(event) => setDayEditor((current) => ({ ...current, notes: event.target.value }))} placeholder="Optional attendance note" /></label>
           </div>
@@ -466,9 +557,10 @@ export default function Attendance({
               return <article className={`missing-attendance-row ${draft.selected ? 'selected' : ''}`} key={date}>
                 <label className="missing-date-check"><input type="checkbox" checked={draft.selected} onChange={(event) => updateMissing(date, { selected: event.target.checked })} /><div><strong>{dateText(date)}</strong><small>{WEEKDAYS[new Date(`${date}T00:00:00`).getDay()]}</small></div></label>
                 <select disabled={!draft.selected} value={draft.shiftId} onChange={(event) => changeMissingShift(date, event.target.value)}>{shifts.map((shift) => <option value={shift.id} key={shift.id}>{shift.name} · {shift.startTime}–{shift.endTime}</option>)}<option value="custom">Custom</option></select>
-                {draft.shiftId === 'custom' && <div className="missing-custom-times"><input disabled={!draft.selected} type="time" value={draft.startTime} onChange={(event) => updateMissing(date, { startTime: event.target.value, actualHours: timeRangeHours(event.target.value, draft.endTime) })} /><span>to</span><input disabled={!draft.selected} type="time" value={draft.endTime} onChange={(event) => updateMissing(date, { endTime: event.target.value, actualHours: timeRangeHours(draft.startTime, event.target.value) })} /></div>}
-                <select disabled={!draft.selected} value={draft.status} onChange={(event) => updateMissing(date, { status: event.target.value, actualHours: statusDefaultHours(event.target.value, hours) })}>{ATTENDANCE_STATUSES.map((status) => <option value={status} key={status}>{attendanceStatusLabel(status)}</option>)}</select>
-                <label className="missing-hours"><span>Actual hours</span><input disabled={!draft.selected} type="number" min="0" step="0.25" value={draft.actualHours} onChange={(event) => updateMissing(date, { actualHours: event.target.value })} /></label>
+                {draft.shiftId === 'custom' && <div className="missing-custom-times"><input disabled={!draft.selected} type="time" step="60" value={draft.startTime} onChange={(event) => updateMissing(date, { startTime: event.target.value, actualStart: event.target.value, actualEnd: draft.endTime, actualHours: timeRangeHours(event.target.value, draft.endTime) })} /><span>to</span><input disabled={!draft.selected} type="time" step="60" value={draft.endTime} onChange={(event) => updateMissing(date, { endTime: event.target.value, actualEnd: event.target.value, actualHours: timeRangeHours(draft.startTime, event.target.value) })} /></div>}
+                <select disabled={!draft.selected} value={draft.status} onChange={(event) => { const worked = statusDefaultHours(event.target.value, hours); updateMissing(date, { status: event.target.value, actualStart: worked > 0 ? draft.startTime : '', actualEnd: worked > 0 ? addHoursToTime(draft.startTime, worked) : '', actualHours: worked }); }}>{ATTENDANCE_STATUSES.map((status) => <option value={status} key={status}>{attendanceStatusLabel(status)}</option>)}</select>
+                <div className="missing-actual-times"><label><span>Check-in</span><input disabled={!draft.selected} type="time" step="60" value={draft.actualStart || ''} onChange={(event) => updateMissing(date, { actualStart: event.target.value, actualHours: event.target.value && draft.actualEnd ? timeRangeHours(event.target.value, draft.actualEnd) : 0 })} /></label><label><span>Check-out</span><input disabled={!draft.selected} type="time" step="60" value={draft.actualEnd || ''} onChange={(event) => updateMissing(date, { actualEnd: event.target.value, actualHours: draft.actualStart && event.target.value ? timeRangeHours(draft.actualStart, event.target.value) : 0 })} /></label></div>
+                <div className="missing-hours"><span>Worked</span><strong>{draft.actualStart && draft.actualEnd ? timeRangeHours(draft.actualStart, draft.actualEnd).toFixed(2) : '0.00'} hrs</strong></div>
               </article>;
             })}
           </div>

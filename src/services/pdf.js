@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { currency, dateText, safeNumber } from '../utils/format';
+import { attendanceStatusLabel, deriveAttendance, payrollTypeLabel, summarizeAttendance, timeRangeLabel24 } from '../utils/payroll';
 
 let paidStampDataUrlPromise = null;
 let companyLogoDataUrlPromise = null;
@@ -39,15 +40,15 @@ function loadCompanyLogoAsDataUrl() {
   return companyLogoDataUrlPromise;
 }
 
-async function addPaidStamp(doc, record, y) {
-  if (String(record.status || '').toUpperCase() !== 'PAID') return false;
+async function addPaidStamp(doc, record, y, options = {}) {
+  if (String(record.status || record.paymentStatus || '').toUpperCase() !== 'PAID') return false;
   try {
     const stamp = await loadPaidStampAsDataUrl();
-    const stampSize = 38;
-    const stampY = Math.max(18, Math.min(y, 232));
-    // The stamp is intentionally placed on the right and kept upright.
-    // Terms and payment details use a narrower left column, so text remains readable.
-    doc.addImage(stamp, 'PNG', 154, stampY, stampSize, stampSize, 'df7-paid-stamp', 'FAST');
+    const stampSize = safeNumber(options.size) || 38;
+    const stampX = safeNumber(options.x) || 154;
+    const maxY = 274 - stampSize;
+    const stampY = Math.max(18, Math.min(y, maxY));
+    doc.addImage(stamp, 'PNG', stampX, stampY, stampSize, stampSize, options.alias || 'df7-paid-stamp', 'FAST');
     return true;
   } catch (error) {
     console.warn(error);
@@ -366,7 +367,7 @@ export async function createSalarySlipPdf(record, settings) {
   const code = settings.currency || 'MVR';
   const isFinal = record.recordType === 'FINAL_SETTLEMENT';
   const isDaily = record.payrollType === 'DAILY';
-  const paid = record.status === 'PAID' || record.settlementStatus === 'PAID';
+  const paid = record.status === 'PAID' || record.paymentStatus === 'PAID' || record.settlementStatus === 'PAID';
 
   doc.setFillColor(244, 240, 231);
   doc.rect(0, 0, 210, 42, 'F');
@@ -404,18 +405,16 @@ export async function createSalarySlipPdf(record, settings) {
   employeeLines.forEach((line, index) => doc.text(line, 108, 56 + index * 4.5));
 
   let y = Math.max(companyY, 76) + 6;
+  // Salary slips contain only a concise monthly attendance summary.
+  // Detailed day-by-day records are available in the separate Attendance Report PDF.
   autoTable(doc, {
     startY: y,
     body: [
       ['Payroll type', isDaily ? 'Daily-Based Salary' : 'Monthly-Based Salary', 'Salary month', record.salaryMonth ? salaryMonthLabelForPdf(record.salaryMonth) : '—'],
-      ['Working days', String(record.totalWorkingDays ?? 0), 'Total hours worked', `${safeNumber(record.totalHoursWorked).toFixed(2)} hrs`],
-      ['Paid days', String(record.paidDays ?? record.totalWorkingDays ?? 0), 'Unpaid days', String(record.unpaidDays ?? record.totalAbsentDays ?? 0)],
-      ['Paid leave', String(record.paidLeaveDays ?? 0), 'Unpaid leave', String(record.unpaidLeaveDays ?? 0)],
-      ['Overtime hours', `${safeNumber(record.totalOvertimeHours ?? record.overtimeHours).toFixed(2)} hrs`, 'Missed hours', `${safeNumber(record.totalMissedHours).toFixed(2)} hrs`],
-      ['Off days', String(record.totalOffDays ?? 0), 'Absent days', String(record.totalAbsentDays ?? 0)],
+      ['Attendance summary', `${safeNumber(record.totalWorkingDays).toFixed(0)} worked · ${safeNumber(record.totalHoursWorked).toFixed(2)} hrs`, 'OT / Missed', `${safeNumber(record.totalOvertimeHours ?? record.overtimeHours).toFixed(2)} / ${safeNumber(record.totalMissedHours).toFixed(2)} hrs`],
     ],
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2.7 },
+    styles: { fontSize: 8.2, cellPadding: 3 },
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 }, 1: { cellWidth: 56 }, 2: { fontStyle: 'bold', cellWidth: 35 }, 3: { cellWidth: 56 } },
     margin: { left: 14, right: 14 },
   });
@@ -476,9 +475,10 @@ export async function createSalarySlipPdf(record, settings) {
   doc.text(`Payment status: ${record.status || record.settlementStatus || 'DRAFT'}`, 14, y + 8);
   if (record.paymentMethod) doc.text(`Payment method: ${record.paymentMethod}`, 14, y + 16);
   if (record.paymentDate) doc.text(`Payment date: ${dateText(record.paymentDate)}`, 14, y + 24);
-  if (isFinal && record.lastWorkingDate) doc.text(`Last working date: ${dateText(record.lastWorkingDate)}`, 14, y + 32);
+  if (record.approvalDate) doc.text(`Slip approval date: ${dateText(record.approvalDate)}`, 14, y + 32);
+  if (isFinal && record.lastWorkingDate) doc.text(`Last working date: ${dateText(record.lastWorkingDate)}`, 14, y + 40);
 
-  let notesY = y + 43;
+  let notesY = y + (record.approvalDate || (isFinal && record.lastWorkingDate) ? 51 : 43);
   if (isFinal && record.reasonForLeaving) {
     doc.setFont('helvetica', 'bold');
     doc.text('REASON FOR LEAVING', 14, notesY);
@@ -501,9 +501,10 @@ export async function createSalarySlipPdf(record, settings) {
     notesY = writeWrapped(doc, notes, 14, notesY + 5, 182, 4.2) + 3;
   }
 
-  if (paid) await addPaidStamp(doc, record, Math.min(205, Math.max(175, notesY + 4)));
+  // Reserve a dedicated lower-right area for the stamp so it never covers the net salary.
+  if (paid) await addPaidStamp(doc, record, Math.min(216, Math.max(198, notesY + 3)), { x: 163, size: 28, alias: 'df7-salary-paid-stamp' });
 
-  const signatureY = 246;
+  const signatureY = 253;
   doc.setTextColor(45, 51, 62);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
@@ -517,6 +518,143 @@ export async function createSalarySlipPdf(record, settings) {
     doc.setFont('helvetica', 'normal');
   }
 
+  addPageFooter(doc, settings);
+  return doc.output('blob');
+}
+
+
+
+const attendanceHeader = async (doc, title, employee, month, settings) => {
+  doc.setFillColor(244, 240, 231);
+  doc.rect(0, 0, 210, 42, 'F');
+  doc.setFillColor(17, 45, 78);
+  doc.rect(0, 39, 210, 3, 'F');
+  await addCompanyLogo(doc);
+  doc.setTextColor(17, 45, 78);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text(title, 196, 15, { align: 'right' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(salaryMonthLabelForPdf(month), 196, 23, { align: 'right' });
+  doc.text(`${employee.employeeNumber || 'Employee'} · ${employee.name || '—'}`, 196, 31, { align: 'right' });
+};
+
+export async function createAttendanceReportPdf({ employee, month, records = [], summary = null }, settings) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const totals = summary || summarizeAttendance(records, employee);
+  const sorted = records.map((row) => deriveAttendance(row, employee)).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  await attendanceHeader(doc, 'MONTHLY ATTENDANCE REPORT', employee, month, settings);
+
+  doc.setTextColor(45, 51, 62);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(settings.businessName || 'Dhinasha Family 7', 14, 51);
+  doc.setFont('helvetica', 'normal');
+  const detailLines = [
+    employee.designation && `Designation: ${employee.designation}`,
+    employee.workLocation && `Work location: ${employee.workLocation}`,
+    `Payroll type: ${payrollTypeLabel(employee.payrollType)}`,
+  ].filter(Boolean);
+  detailLines.forEach((line, index) => doc.text(line, 14, 57 + index * 4.5));
+
+  autoTable(doc, {
+    startY: 74,
+    body: [[
+      `Worked days: ${totals.totalWorkingDays}`,
+      `Hours: ${safeNumber(totals.totalHoursWorked).toFixed(2)}`,
+      `OT: ${safeNumber(totals.totalOvertimeHours).toFixed(2)}`,
+      `Missed: ${safeNumber(totals.totalMissedHours).toFixed(2)}`,
+      `Off: ${totals.totalOffDays}`,
+      `Absent: ${totals.totalAbsentDays}`,
+    ]],
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2.5, halign: 'center' },
+    margin: { left: 14, right: 14 },
+  });
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 6,
+    head: [['Date', 'Shift', 'Scheduled', 'Actual', 'Status', 'Hours', 'OT', 'Missed', 'Notes']],
+    body: sorted.map((row) => [
+      dateText(row.date),
+      row.shiftName || 'Custom',
+      timeRangeLabel24(row.scheduledStart, row.scheduledEnd),
+      row.actualStart && row.actualEnd ? timeRangeLabel24(row.actualStart, row.actualEnd) : '—',
+      attendanceStatusLabel(row.status),
+      safeNumber(row.actualHours).toFixed(2),
+      safeNumber(row.overtimeHours).toFixed(2),
+      safeNumber(row.missedHours).toFixed(2),
+      row.notes || '',
+    ]),
+    theme: 'grid',
+    headStyles: { fillColor: [17, 73, 105], textColor: 255 },
+    styles: { fontSize: 6.7, cellPadding: 1.8, overflow: 'linebreak' },
+    columnStyles: {
+      0: { cellWidth: 20 }, 1: { cellWidth: 19 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 },
+      4: { cellWidth: 19 }, 5: { cellWidth: 13, halign: 'right' }, 6: { cellWidth: 11, halign: 'right' },
+      7: { cellWidth: 13, halign: 'right' }, 8: { cellWidth: 37 },
+    },
+    margin: { left: 14, right: 14, bottom: 22 },
+    didDrawPage: () => addPageFooter(doc, settings),
+  });
+
+  if (!sorted.length) {
+    doc.setFontSize(10);
+    doc.text('No attendance records were saved for this employee and month.', 105, 112, { align: 'center' });
+  }
+  addPageFooter(doc, settings);
+  return doc.output('blob');
+}
+
+export async function createAttendanceSlipPdf({ employee, month, records = [], summary = null }, settings) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const totals = summary || summarizeAttendance(records, employee);
+  await attendanceHeader(doc, 'MONTHLY ATTENDANCE SLIP', employee, month, settings);
+
+  doc.setTextColor(45, 51, 62);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EMPLOYEE', 14, 54);
+  doc.setFont('helvetica', 'normal');
+  const lines = [
+    `Name: ${employee.name || '—'}`,
+    `Employee ID: ${employee.employeeNumber || '—'}`,
+    employee.designation ? `Designation: ${employee.designation}` : '',
+    employee.workLocation ? `Work location: ${employee.workLocation}` : '',
+    `Payroll type: ${payrollTypeLabel(employee.payrollType)}`,
+  ].filter(Boolean);
+  lines.forEach((line, index) => doc.text(line, 14, 61 + index * 5));
+
+  autoTable(doc, {
+    startY: 92,
+    head: [['Monthly attendance summary', 'Total']],
+    body: [
+      ['Recorded duty days', String(totals.totalRecords)],
+      ['Working days', String(totals.totalWorkingDays)],
+      ['Total hours worked', `${safeNumber(totals.totalHoursWorked).toFixed(2)} hrs`],
+      ['Overtime hours', `${safeNumber(totals.totalOvertimeHours).toFixed(2)} hrs`],
+      ['Missed hours', `${safeNumber(totals.totalMissedHours).toFixed(2)} hrs`],
+      ['Off days', String(totals.totalOffDays)],
+      ['Absent days', String(totals.totalAbsentDays)],
+      ['Leave days', String(totals.totalLeaveDays)],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [17, 73, 105], textColor: 255 },
+    styles: { fontSize: 9, cellPadding: 4 },
+    columnStyles: { 0: { cellWidth: 125 }, 1: { cellWidth: 57, halign: 'right', fontStyle: 'bold' } },
+    margin: { left: 14, right: 14 },
+  });
+
+  const signatureY = 225;
+  doc.setDrawColor(90, 95, 105);
+  doc.line(14, signatureY, 78, signatureY);
+  doc.line(132, signatureY, 196, signatureY);
+  doc.setFontSize(8);
+  doc.text('Employee acknowledgement', 14, signatureY + 5);
+  doc.text('Manager / authorized signature', 132, signatureY + 5);
+  doc.setFontSize(7.5);
+  doc.text(`Generated: ${dateText(new Date().toISOString().slice(0, 10))}`, 14, 266);
   addPageFooter(doc, settings);
   return doc.output('blob');
 }

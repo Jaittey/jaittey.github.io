@@ -337,6 +337,25 @@ export async function saveAttendanceSettings(data) {
   await writeActivity('UPDATE ATTENDANCE SHIFTS', 'settings', 'attendance');
 }
 
+
+export async function saveAttendanceDocumentRecord(data, existingId = null) {
+  if (!data.employeeId || !data.attendanceMonth || !data.documentType) {
+    throw new Error('Employee, month and attendance document type are required.');
+  }
+  const deterministicId = existingId || `${data.employeeId}_${data.attendanceMonth}_${String(data.documentType).toLowerCase()}`
+    .replace(/[^a-zA-Z0-9_-]/g, '_');
+  const reference = doc(db, 'attendanceDocuments', deterministicId);
+  await setDoc(reference, {
+    ...data,
+    generatedAt: data.generatedAt || new Date().toISOString(),
+    generatedBy: auth.currentUser?.email || '',
+    updatedAt: serverTimestamp(),
+    createdAt: data.createdAt || serverTimestamp(),
+  }, { merge: true });
+  await writeActivity(`GENERATE ATTENDANCE ${data.documentType}`, 'attendanceDocuments', deterministicId);
+  return deterministicId;
+}
+
 export async function saveSalarySlipRecord(data, existingId = null) {
   if (!existingId && (!data.employeeId || !data.salaryMonth)) {
     throw new Error('Employee and salary month are required for a salary slip.');
@@ -356,6 +375,24 @@ export async function saveSalarySlipRecord(data, existingId = null) {
 
   await writeActivity(existingId ? 'UPDATE SALARY SLIP' : 'CREATE SALARY SLIP', 'salarySlips', salarySlipId);
   return salarySlipId;
+}
+
+
+export async function setSalarySlipLock(salarySlipId, locked = true) {
+  if (!salarySlipId) throw new Error('A saved salary slip is required.');
+  const data = locked ? {
+    locked: true,
+    lockedAt: serverTimestamp(),
+    lockedBy: auth.currentUser?.email || '',
+    updatedAt: serverTimestamp(),
+  } : {
+    locked: false,
+    unlockedAt: serverTimestamp(),
+    unlockedBy: auth.currentUser?.email || '',
+    updatedAt: serverTimestamp(),
+  };
+  await setDoc(doc(db, 'salarySlips', salarySlipId), data, { merge: true });
+  await writeActivity(locked ? 'LOCK SALARY SLIP' : 'UNLOCK SALARY SLIP', 'salarySlips', salarySlipId);
 }
 
 export async function markPayrollAndSalarySlipPaid(payrollId, salarySlipId, payment = {}) {
