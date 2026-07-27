@@ -36,7 +36,7 @@ export default function LoginPage({
           <img className="login-company-logo" src={`${import.meta.env.BASE_URL}images/DF7_Logo.png`} alt="DF7" />
         </div>
 
-        <p className="eyebrow">DF7 BUSINESS v2.1.4 ENTERPRISE</p>
+        <p className="eyebrow">DF7 BUSINESS v2.1.6 ENTERPRISE</p>
         <h1>One workspace for every department.</h1>
         <p className="login-copy">Sales, customers, employees, payroll, finance, inventory, reports and cloud documents.</p>
 

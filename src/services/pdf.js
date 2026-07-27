@@ -409,6 +409,8 @@ export async function createSalarySlipPdf(record, settings) {
     body: [
       ['Payroll type', isDaily ? 'Daily-Based Salary' : 'Monthly-Based Salary', 'Salary month', record.salaryMonth ? salaryMonthLabelForPdf(record.salaryMonth) : '—'],
       ['Working days', String(record.totalWorkingDays ?? 0), 'Total hours worked', `${safeNumber(record.totalHoursWorked).toFixed(2)} hrs`],
+      ['Paid days', String(record.paidDays ?? record.totalWorkingDays ?? 0), 'Unpaid days', String(record.unpaidDays ?? record.totalAbsentDays ?? 0)],
+      ['Paid leave', String(record.paidLeaveDays ?? 0), 'Unpaid leave', String(record.unpaidLeaveDays ?? 0)],
       ['Overtime hours', `${safeNumber(record.totalOvertimeHours ?? record.overtimeHours).toFixed(2)} hrs`, 'Missed hours', `${safeNumber(record.totalMissedHours).toFixed(2)} hrs`],
       ['Off days', String(record.totalOffDays ?? 0), 'Absent days', String(record.totalAbsentDays ?? 0)],
     ],
@@ -427,8 +429,12 @@ export async function createSalarySlipPdf(record, settings) {
     : (isDaily ? safeNumber(record.hourlyEarnings ?? record.basicSalary) : safeNumber(record.fixedSalary ?? record.basicSalary));
   const overtimePay = safeNumber(record.overtimePay ?? record.overtimeAmount);
   const missedDeduction = safeNumber(record.missedDutyDeduction);
-  const otherAdditions = safeNumber(record.otherAdditions ?? record.allowances) + safeNumber(record.bonus) + safeNumber(record.otherEarnings);
+  const otherAdditions = safeNumber(record.otherAdditions ?? record.allowances)
+    + safeNumber(record.customAddition)
+    + safeNumber(record.bonus)
+    + safeNumber(record.otherEarnings);
   const otherDeductions = safeNumber(record.otherDeductions)
+    + safeNumber(record.customDeduction)
     + safeNumber(record.lateDeduction)
     + safeNumber(record.absentDeduction)
     + safeNumber(record.loanDeduction)
@@ -478,6 +484,14 @@ export async function createSalarySlipPdf(record, settings) {
     doc.text('REASON FOR LEAVING', 14, notesY);
     doc.setFont('helvetica', 'normal');
     notesY = writeWrapped(doc, record.reasonForLeaving, 14, notesY + 5, 182, 4.2) + 3;
+  }
+  if (Math.abs(safeNumber(record.issuedSalaryAmount ?? record.netSalary) - safeNumber(record.calculatedPayrollAmount ?? record.netSalary)) > 0.009) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('CUSTOM SALARY ADJUSTMENT', 14, notesY);
+    doc.setFont('helvetica', 'normal');
+    const differenceText = `Calculated payroll: ${currency(record.calculatedPayrollAmount, code)} · Issued salary: ${currency(record.issuedSalaryAmount ?? record.netSalary, code)}`;
+    notesY = writeWrapped(doc, differenceText, 14, notesY + 5, 182, 4.2) + 1;
+    if (record.adjustmentReason) notesY = writeWrapped(doc, `Reason: ${record.adjustmentReason}`, 14, notesY + 4, 182, 4.2) + 3;
   }
   const notes = record.notes || record.adjustmentNotes;
   if (notes) {

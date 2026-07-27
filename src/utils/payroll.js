@@ -5,6 +5,83 @@ export const PAYROLL_TYPES = {
   DAILY: 'DAILY',
 };
 
+
+
+export const DEFAULT_ATTENDANCE_SHIFTS = [
+  { id: 'morning', name: 'Morning', startTime: '08:00', endTime: '16:00', isDefault: true, active: true },
+  { id: 'evening', name: 'Evening', startTime: '16:00', endTime: '00:00', isDefault: false, active: true },
+  { id: 'night', name: 'Night', startTime: '00:00', endTime: '08:00', isDefault: false, active: true },
+];
+
+export const timeRangeHours = (startTime = '', endTime = '') => {
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) return 0;
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  const start = startHour * 60 + startMinute;
+  let end = endHour * 60 + endMinute;
+  if (end === start) return 0;
+  if (end < start) end += 24 * 60;
+  return Math.max(0, (end - start) / 60);
+};
+
+export const normalizeAttendanceShifts = (settings = {}) => {
+  const source = Array.isArray(settings.shifts) && settings.shifts.length
+    ? settings.shifts
+    : DEFAULT_ATTENDANCE_SHIFTS;
+  const normalized = source
+    .filter((shift) => shift && shift.id && shift.name)
+    .map((shift) => ({
+      id: String(shift.id),
+      name: String(shift.name),
+      startTime: shift.startTime || '08:00',
+      endTime: shift.endTime || '16:00',
+      isDefault: Boolean(shift.isDefault),
+      active: shift.active !== false,
+    }));
+  if (!normalized.some((shift) => shift.isDefault)) {
+    const firstActive = normalized.find((shift) => shift.active) || normalized[0];
+    if (firstActive) firstActive.isDefault = true;
+  }
+  return normalized;
+};
+
+export const defaultAttendanceShift = (settings = {}) => (
+  normalizeAttendanceShifts(settings).find((shift) => shift.isDefault && shift.active)
+  || normalizeAttendanceShifts(settings).find((shift) => shift.active)
+  || DEFAULT_ATTENDANCE_SHIFTS[0]
+);
+
+export const attendanceFromShift = (employee, date, shift, overrides = {}) => {
+  const selectedShift = shift || DEFAULT_ATTENDANCE_SHIFTS[0];
+  const scheduledHours = timeRangeHours(selectedShift.startTime, selectedShift.endTime)
+    || Math.max(0, safeNumber(employee?.standardDailyHours || 8));
+  const status = overrides.status || 'PRESENT';
+  let actualHours = overrides.actualHours;
+  if (actualHours === undefined || actualHours === null || actualHours === '') {
+    actualHours = ['ABSENT', 'OFF_DAY', 'LEAVE'].includes(status) ? 0 : scheduledHours;
+  }
+  return deriveAttendance({
+    employeeId: employee?.id || '',
+    employeeNumber: employee?.employeeNumber || '',
+    employeeName: employee?.name || '',
+    designation: employee?.designation || '',
+    workLocation: employee?.workLocation || employee?.contract || '',
+    payrollType: employee?.payrollType || PAYROLL_TYPES.MONTHLY,
+    date,
+    attendanceMonth: dateMonthKey(date),
+    leaveDeductible: false,
+    notes: '',
+    ...overrides,
+    status,
+    actualHours,
+    shiftId: selectedShift.id || 'custom',
+    shiftName: selectedShift.name || 'Custom',
+    scheduledStart: selectedShift.startTime || '',
+    scheduledEnd: selectedShift.endTime || '',
+    scheduledHours,
+  }, employee || {});
+};
+
 export const ATTENDANCE_STATUSES = [
   'PRESENT',
   'ABSENT',
@@ -252,4 +329,95 @@ export const calculateFinalSettlement = (employee, records = [], data = {}) => {
     overtimeHours: summary.totalOvertimeHours,
     overtimeAmount: overtimePay,
   };
+};
+
+export const attendancePayDaySummary = (records = [], employee = null) => {
+  const rows = records.map((row) => deriveAttendance(row, employee || {}));
+  const paidLeaveDays = rows.filter((row) => row.status === 'LEAVE' && !row.leaveDeductible).length;
+  const unpaidLeaveDays = rows.filter((row) => row.status === 'LEAVE' && row.leaveDeductible).length;
+  const unpaidDays = rows.filter((row) => row.status === 'ABSENT').length;
+  const workedDays = rows.filter((row) => row.actualHours > 0).length;
+  const offDays = rows.filter((row) => row.status === 'OFF_DAY').length;
+  return {
+    paidDays: workedDays + offDays + paidLeaveDays,
+    unpaidDays,
+    paidLeaveDays,
+    unpaidLeaveDays,
+  };
+};
+
+export const calculatePayrollWithDayAdjustments = (employee, records = [], adjustments = {}) => {
+  const base = calculateAttendancePayroll(employee, records, adjustments);
+  const automaticDays = attendancePayDaySummary(records, employee);
+  const paidDays = adjustments.paidDays === undefined || adjustments.paidDays === null || adjustments.paidDays === ''
+    ? automaticDays.paidDays
+    : Math.max(0, safeNumber(adjustments.paidDays));
+  const unpaidDays = adjustments.unpaidDays === undefined || adjustments.unpaidDays === null || adjustments.unpaidDays === ''
+    ? automaticDays.unpaidDays
+    : Math.max(0, safeNumber(adjustments.unpaidDays));
+  const paidLeaveDays = adjustments.paidLeaveDays === undefined || adjustments.paidLeaveDays === null || adjustments.paidLeaveDays === ''
+    ? automaticDays.paidLeaveDays
+    : Math.max(0, safeNumber(adjustments.paidLeaveDays));
+  const unpaidLeaveDays = adjustments.unpaidLeaveDays === undefined || adjustments.unpaidLeaveDays === null || adjustments.unpaidLeaveDays === ''
+    ? automaticDays.unpaidLeaveDays
+    : Math.max(0, safeNumber(adjustments.unpaidLeaveDays));
+
+  const standardDailyHours = Math.max(0, safeNumber(employee?.standardDailyHours || 8));
+  const missedDutyRate = Math.max(0, safeNumber(employee?.missedDutyDeductionRate ?? employee?.hourlyDeductionRate));
+  const automaticUnpaidUnits = automaticDays.unpaidDays + automaticDays.unpaidLeaveDays;
+  const adjustedUnpaidUnits = unpaidDays + unpaidLeaveDays;
+  const dayRate = employee?.payrollType === PAYROLL_TYPES.DAILY
+    ? 0
+    : standardDailyHours * missedDutyRate;
+  const dayClassificationAdjustment = (automaticUnpaidUnits - adjustedUnpaidUnits) * dayRate;
+  const paidDayAdjustment = Math.max(0, dayClassificationAdjustment);
+  const unpaidDayDeduction = Math.max(0, -dayClassificationAdjustment);
+
+  const grossSalary = base.grossSalary + paidDayAdjustment;
+  const totalDeductions = base.totalDeductions + unpaidDayDeduction;
+  const netSalary = Math.max(0, grossSalary - totalDeductions);
+
+  return {
+    ...base,
+    ...automaticDays,
+    paidDays,
+    unpaidDays,
+    paidLeaveDays,
+    unpaidLeaveDays,
+    automaticPaidDays: automaticDays.paidDays,
+    automaticUnpaidDays: automaticDays.unpaidDays,
+    automaticPaidLeaveDays: automaticDays.paidLeaveDays,
+    automaticUnpaidLeaveDays: automaticDays.unpaidLeaveDays,
+    dayRate,
+    paidDayAdjustment,
+    unpaidDayDeduction,
+    grossSalary,
+    totalDeductions,
+    netSalary,
+  };
+};
+
+const monthKeyFromDate = (value) => String(value || '').slice(0, 7);
+
+export const employeePayrollMonthKeys = (employee, attendance = [], payroll = [], salarySlips = []) => {
+  const months = new Set();
+  attendance.filter((row) => row.employeeId === employee?.id).forEach((row) => months.add(row.attendanceMonth || monthKeyFromDate(row.date)));
+  payroll.filter((row) => row.employeeId === employee?.id && row.recordType !== 'FINAL_SETTLEMENT').forEach((row) => months.add(row.salaryMonth));
+  salarySlips.filter((row) => row.employeeId === employee?.id).forEach((row) => months.add(row.salaryMonth));
+
+  const startMonth = monthKeyFromDate(employee?.joiningDate) || [...months].sort()[0] || dateMonthKey(new Date().toISOString());
+  const endMonth = monthKeyFromDate(employee?.lastWorkingDate) || dateMonthKey(new Date().toISOString());
+  if (/^\d{4}-\d{2}$/.test(startMonth) && /^\d{4}-\d{2}$/.test(endMonth)) {
+    let [year, month] = startMonth.split('-').map(Number);
+    const [endYear, endNumber] = endMonth.split('-').map(Number);
+    let guard = 0;
+    while ((year < endYear || (year === endYear && month <= endNumber)) && guard < 240) {
+      months.add(`${year}-${String(month).padStart(2, '0')}`);
+      month += 1;
+      if (month > 12) { month = 1; year += 1; }
+      guard += 1;
+    }
+  }
+
+  return [...months].filter((value) => /^\d{4}-\d{2}$/.test(value)).sort().reverse();
 };

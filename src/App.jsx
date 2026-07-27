@@ -27,12 +27,14 @@ import { canAccessPage, getDefaultPage } from './config/erp';
 import { useAuth } from './hooks/useAuth';
 import { useLiveCollection } from './hooks/useLiveCollection';
 import { useSettings } from './hooks/useSettings';
+import { useAttendanceSettings } from './hooks/useAttendanceSettings';
 import { disconnectDrive, isDriveConnected, requestDriveAccess } from './services/drive';
 
 export default function App() {
   const { user, role, loading, error, loginGoogle, loginEmail, registerEmail, logout } = useAuth();
   const authenticated = Boolean(user);
   const settings = useSettings(authenticated);
+  const attendanceSettings = useAttendanceSettings(authenticated);
   const invoices = useLiveCollection('invoices', 'createdAt', authenticated && canAccessPage(role, 'invoices'));
   const quotes = useLiveCollection('quotes', 'createdAt', authenticated && canAccessPage(role, 'quotes'));
   const products = useLiveCollection('products', 'createdAt', authenticated && canAccessPage(role, 'products'));
@@ -41,8 +43,8 @@ export default function App() {
   const billingContracts = useLiveCollection('billingContracts', 'createdAt', authenticated && canAccessPage(role, 'billing'));
   const employees = useLiveCollection('employees', 'createdAt', authenticated && canAccessPage(role, 'employees'));
   const payroll = useLiveCollection('payroll', 'createdAt', authenticated && canAccessPage(role, 'payroll'));
+  const salarySlips = useLiveCollection('salarySlips', 'createdAt', authenticated && canAccessPage(role, 'payroll'));
   const attendance = useLiveCollection('attendance', 'date', authenticated && canAccessPage(role, 'attendance'));
-  const attendanceShifts = useLiveCollection('attendanceShifts', 'updatedAt', authenticated && canAccessPage(role, 'attendance'));
   const payrollPeriods = useLiveCollection('payrollPeriods', 'month', authenticated && canAccessPage(role, 'payroll'));
   const finalSettlements = useLiveCollection('finalSettlements', 'lastWorkingDate', authenticated && canAccessPage(role, 'payroll'));
   const budgets = useLiveCollection('budgets', 'createdAt', authenticated && canAccessPage(role, 'budget'));
@@ -103,7 +105,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.5…</p></div>;
+  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.6…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} theme={theme} toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />;
 
   const common = { settings, notify };
@@ -129,9 +131,9 @@ export default function App() {
         { title: 'Employee profiles', icon: '♙', description: 'Personal, emergency, banking and employment details.', features: ['National ID', 'Designation', 'Department', 'Joining date'], ready: true, page: 'employees' },
         { title: 'Promotions & transfers', icon: '↗', description: 'Structured HR history and attachments.', features: ['Promotions', 'Transfers', 'Resignations', 'Employee notes'], ready: false },
       ]);
-      case 'payroll': return <Payroll payroll={payroll.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={() => setPayrollEmployee(null)} initialFinalEmployee={finalSettlementEmployee} clearInitialFinalEmployee={() => setFinalSettlementEmployee(null)} />;
-      case 'attendance': return <Attendance attendance={attendance.items} employees={employees.items} payroll={payroll.items} payrollPeriods={payrollPeriods.items} shifts={attendanceShifts.items} {...common} role={role} />;
-      case 'attendance-settings': return <AttendanceSettings shifts={attendanceShifts.items} notify={notify} />;
+      case 'payroll': return <Payroll payroll={payroll.items} salarySlips={salarySlips.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={() => setPayrollEmployee(null)} initialFinalEmployee={finalSettlementEmployee} clearInitialFinalEmployee={() => setFinalSettlementEmployee(null)} />;
+      case 'attendance': return <Attendance attendance={attendance.items} employees={employees.items} payroll={payroll.items} payrollPeriods={payrollPeriods.items} attendanceSettings={attendanceSettings} {...common} role={role} onOpenSettings={() => setPage('attendance-settings')} />;
+      case 'attendance-settings': return <AttendanceSettings attendanceSettings={attendanceSettings} notify={notify} />;
       case 'finance': return hub('FINANCIAL MANAGEMENT', 'Finance Overview', 'Income, expenses, budgets and tax controls.', [
         { title: 'Income & payments', icon: '↗', description: 'Revenue and received-payment records.', features: ['Invoice revenue', 'Other income framework', 'Payment history'], ready: true, page: 'payments' },
         { title: 'Expenses', icon: '↘', description: 'Operating expense tracking by category.', features: ['Office', 'Transport', 'Utilities', 'Maintenance'], ready: true, page: 'expenses' },
@@ -156,7 +158,7 @@ export default function App() {
     }
   };
 
-  const sources = [invoices, quotes, products, expenses, customers, billingContracts, employees, payroll, attendance, attendanceShifts, payrollPeriods, finalSettlements, budgets, payments, users, activityLogs];
+  const sources = [invoices, quotes, products, expenses, customers, billingContracts, employees, payroll, salarySlips, attendance, payrollPeriods, finalSettlements, budgets, payments, users, activityLogs];
   const dataError = sources.find((source) => source.error)?.error;
 
   return <>

@@ -3,7 +3,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -229,6 +228,7 @@ export async function setPayrollMonthStatus(month, status, payrollIds = [], opti
     payrollIds.forEach((id) => {
       const payrollRef = doc(db, 'payroll', id);
       if (status === 'APPROVED') transaction.set(payrollRef, { status: 'APPROVED', approvedAt: serverTimestamp(), approvedBy: auth.currentUser?.email || '', updatedAt: serverTimestamp() }, { merge: true });
+      if (status === 'OPEN') transaction.set(payrollRef, { status: 'REOPENED', reopenedAt: serverTimestamp(), reopenedBy: auth.currentUser?.email || '', updatedAt: serverTimestamp() }, { merge: true });
       if (options.markPaid) transaction.set(payrollRef, { status: 'PAID', paymentDate: options.paymentDate || new Date().toISOString().slice(0, 10), paidAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
     });
   });
@@ -323,22 +323,58 @@ export async function receivePayment(invoice, payment) {
   return paymentRef.id;
 }
 
-export async function saveAttendanceShift(shift) {
-  const id = (shift.id || shift.name || `shift-${Date.now()}`).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-  if (shift.isDefault) {
-    const shifts = await getDocs(collection(db, 'attendanceShifts'));
-    const batch = writeBatch(db);
-    shifts.docs.forEach((snapshot) => batch.set(snapshot.ref, { isDefault: snapshot.id === id, updatedAt: serverTimestamp() }, { merge: true }));
-    batch.set(doc(db, 'attendanceShifts', id), { ...shift, id, isDefault: true, active: shift.active !== false, updatedAt: serverTimestamp(), createdAt: shift.createdAt || serverTimestamp() }, { merge: true });
-    await batch.commit();
-  } else {
-    await setDoc(doc(db, 'attendanceShifts', id), { ...shift, id, active: shift.active !== false, updatedAt: serverTimestamp(), createdAt: shift.createdAt || serverTimestamp() }, { merge: true });
+export async function saveAttendanceSettings(data) {
+  const shifts = Array.isArray(data?.shifts) ? data.shifts : [];
+  if (!shifts.length) throw new Error('At least one attendance shift is required.');
+  if (!shifts.some((shift) => shift.isDefault && shift.active !== false)) {
+    throw new Error('Select one active shift as the default shift.');
   }
-  await writeActivity('SAVE ATTENDANCE SHIFT', 'attendanceShifts', id);
-  return id;
+  await setDoc(doc(db, 'settings', 'attendance'), {
+    shifts,
+    updatedAt: serverTimestamp(),
+    updatedBy: auth.currentUser?.email || '',
+  }, { merge: true });
+  await writeActivity('UPDATE ATTENDANCE SHIFTS', 'settings', 'attendance');
 }
 
-export async function deleteAttendanceShift(id) {
-  await deleteDoc(doc(db, 'attendanceShifts', id));
-  await writeActivity('DELETE ATTENDANCE SHIFT', 'attendanceShifts', id);
+export async function saveSalarySlipRecord(data, existingId = null) {
+  if (!existingId && (!data.employeeId || !data.salaryMonth)) {
+    throw new Error('Employee and salary month are required for a salary slip.');
+  }
+  const deterministicId = existingId || `${data.employeeId}_${data.salaryMonth}_salary-slip`.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const salarySlipId = existingId || deterministicId;
+  const salarySlipRef = doc(db, 'salarySlips', salarySlipId);
+
+  await runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(salarySlipRef);
+    transaction.set(salarySlipRef, {
+      ...data,
+      updatedAt: serverTimestamp(),
+      ...(snapshot.exists() ? {} : { createdAt: serverTimestamp() }),
+    }, { merge: true });
+  });
+
+  await writeActivity(existingId ? 'UPDATE SALARY SLIP' : 'CREATE SALARY SLIP', 'salarySlips', salarySlipId);
+  return salarySlipId;
+}
+
+export async function markPayrollAndSalarySlipPaid(payrollId, salarySlipId, payment = {}) {
+  if (!payrollId || !salarySlipId) throw new Error('Payroll and salary slip are required.');
+  const paidData = {
+    status: 'PAID',
+    paymentStatus: 'PAID',
+    paymentDate: payment.paymentDate || new Date().toISOString().slice(0, 10),
+    paymentMethod: payment.paymentMethod || 'Bank Transfer',
+    paymentReference: payment.paymentReference || '',
+    paymentNotes: payment.paymentNotes || '',
+    paidAt: serverTimestamp(),
+    paidBy: auth.currentUser?.email || '',
+    updatedAt: serverTimestamp(),
+  };
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'payroll', payrollId), paidData, { merge: true });
+  batch.set(doc(db, 'salarySlips', salarySlipId), paidData, { merge: true });
+  await batch.commit();
+  await writeActivity('MARK SALARY PAID', 'payroll', payrollId);
+  await writeActivity('MARK SALARY SLIP PAID', 'salarySlips', salarySlipId);
 }
