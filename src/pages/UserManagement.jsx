@@ -39,14 +39,14 @@ export default function UserManagement({ users, notify }) {
         <div>
           <p className="eyebrow">ACCESS CONTROL</p>
           <h2>Managers and users</h2>
-          <p className="page-subtitle">The administrator authorizes accounts. Managers can use all business departments except Administration and User Management. Users only receive Invoices, Quotations, Customers and Inventory.</p>
+          <p className="page-subtitle">The administrator authorizes accounts. Managers can use all business departments except Administration and User Management. Users receive Invoices, Quotations, Customers, Inventory, read-only Employee profiles, Attendance entry and read-only Payroll / Salary Slips.</p>
         </div>
         <button className="button button-primary" onClick={() => open()}>＋ Add user access</button>
       </div>
 
       <section className="role-permission-summary">
         <article className="panel"><span>◆</span><div><h3>Manager</h3><p>All operational departments, reports, cloud and notifications. No Administration or User Management.</p></div></article>
-        <article className="panel"><span>◇</span><div><h3>User</h3><p>Quotations, Invoices, Customers and Inventory only.</p></div></article>
+        <article className="panel"><span>◇</span><div><h3>User</h3><p>Quotations, Invoices, Customers, Inventory, Employee viewing, Attendance entry and read-only Payroll / Salary Slips.</p></div></article>
       </section>
 
       <section className="user-role-grid">

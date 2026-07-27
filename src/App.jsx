@@ -14,6 +14,7 @@ import Settings from './pages/Settings';
 import Billing from './pages/Billing';
 import Employees from './pages/Employees';
 import Payroll from './pages/Payroll';
+import Attendance from './pages/Attendance';
 import Budget from './pages/Budget';
 import Payments from './pages/Payments';
 import Reports from './pages/Reports';
@@ -39,6 +40,9 @@ export default function App() {
   const billingContracts = useLiveCollection('billingContracts', 'createdAt', authenticated && canAccessPage(role, 'billing'));
   const employees = useLiveCollection('employees', 'createdAt', authenticated && canAccessPage(role, 'employees'));
   const payroll = useLiveCollection('payroll', 'createdAt', authenticated && canAccessPage(role, 'payroll'));
+  const attendance = useLiveCollection('attendance', 'date', authenticated && canAccessPage(role, 'attendance'));
+  const payrollPeriods = useLiveCollection('payrollPeriods', 'month', authenticated && canAccessPage(role, 'payroll'));
+  const finalSettlements = useLiveCollection('finalSettlements', 'lastWorkingDate', authenticated && canAccessPage(role, 'payroll'));
   const budgets = useLiveCollection('budgets', 'createdAt', authenticated && canAccessPage(role, 'budget'));
   const payments = useLiveCollection('payments', 'createdAt', authenticated && canAccessPage(role, 'payments'));
   const users = useLiveCollection('userAccess', 'updatedAt', authenticated && role === 'administrator');
@@ -50,6 +54,7 @@ export default function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [payrollEmployee, setPayrollEmployee] = useState(null);
+  const [finalSettlementEmployee, setFinalSettlementEmployee] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem('df7-theme') || 'dark');
 
   useEffect(() => {
@@ -96,7 +101,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.2…</p></div>;
+  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.4…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} theme={theme} toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />;
 
   const common = { settings, notify };
@@ -117,16 +122,13 @@ export default function App() {
         { title: 'Payment history', icon: '↘', description: 'All payments recorded against customer invoices.', features: ['Invoice references', 'Payment methods', 'Outstanding balances'], ready: true, page: 'payments' },
         { title: 'Customer history', icon: '◎', description: 'Customer records and invoice history.', features: ['Contact details', 'Notes', 'Invoice totals'], ready: true, page: 'customers' },
       ]);
-      case 'employees': return <Employees employees={employees.items} {...common} openPayroll={(employee) => { setPayrollEmployee(employee); setPage('payroll'); }} />;
+      case 'employees': return <Employees employees={employees.items} {...common} role={role} openPayroll={(employee) => { setPayrollEmployee(employee); setPage('payroll'); }} openFinalSettlement={(employee) => { setFinalSettlementEmployee(employee); setPage('payroll'); }} />;
       case 'hr-records': return hub('EMPLOYEE MANAGEMENT', 'HR Records', 'Employee lifecycle and document framework.', [
         { title: 'Employee profiles', icon: '♙', description: 'Personal, emergency, banking and employment details.', features: ['National ID', 'Designation', 'Department', 'Joining date'], ready: true, page: 'employees' },
         { title: 'Promotions & transfers', icon: '↗', description: 'Structured HR history and attachments.', features: ['Promotions', 'Transfers', 'Resignations', 'Employee notes'], ready: false },
       ]);
-      case 'payroll': return <Payroll payroll={payroll.items} employees={employees.items} {...common} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={() => setPayrollEmployee(null)} />;
-      case 'attendance': return hub('PAYROLL & ATTENDANCE', 'Attendance', 'Prepared workspace for daily attendance and leave management.', [
-        { title: 'Daily attendance', icon: '◷', description: 'Check-in, check-out and work-hour tracking.', features: ['Daily status', 'Late records', 'Absent records'], ready: false },
-        { title: 'Leave management', icon: '□', description: 'Leave requests, public holidays and approvals.', features: ['Annual leave', 'Sick leave', 'Public holidays'], ready: false },
-      ]);
+      case 'payroll': return <Payroll payroll={payroll.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={() => setPayrollEmployee(null)} initialFinalEmployee={finalSettlementEmployee} clearInitialFinalEmployee={() => setFinalSettlementEmployee(null)} />;
+      case 'attendance': return <Attendance attendance={attendance.items} employees={employees.items} payroll={payroll.items} payrollPeriods={payrollPeriods.items} {...common} role={role} />;
       case 'finance': return hub('FINANCIAL MANAGEMENT', 'Finance Overview', 'Income, expenses, budgets and tax controls.', [
         { title: 'Income & payments', icon: '↗', description: 'Revenue and received-payment records.', features: ['Invoice revenue', 'Other income framework', 'Payment history'], ready: true, page: 'payments' },
         { title: 'Expenses', icon: '↘', description: 'Operating expense tracking by category.', features: ['Office', 'Transport', 'Utilities', 'Maintenance'], ready: true, page: 'expenses' },
@@ -141,7 +143,7 @@ export default function App() {
       case 'products': return <Products products={products.items} {...common} />;
       case 'suppliers': return hub('INVENTORY & ASSETS', 'Suppliers', 'Supplier and purchase-history workspace.', [{ title: 'Supplier directory', icon: '◎', description: 'Supplier contacts, purchase history and agreements.', features: ['Supplier details', 'Purchase records', 'Notes'], ready: false }]);
       case 'assets': return hub('INVENTORY & ASSETS', 'Company Assets', 'Track office equipment, uniforms, vehicles and assignments.', [{ title: 'Asset register', icon: '□', description: 'Company asset ownership and employee assignment.', features: ['Asset number', 'Condition', 'Assigned employee', 'Maintenance'], ready: false }]);
-      case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} products={products.items} settings={settings} />;
+      case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} attendance={attendance.items} finalSettlements={finalSettlements.items} products={products.items} settings={settings} />;
       case 'cloud': return <CloudDocuments driveConnected={driveConnected || isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} counts={{ invoices: invoices.items.length, quotes: quotes.items.length, payroll: payroll.items.length, contracts: billingContracts.items.length }} />;
       case 'notifications': return <Notifications invoices={invoices.items} products={products.items} payroll={payroll.items} budgets={budgets.items} billingContracts={billingContracts.items} />;
       case 'settings': return <Settings {...common} />;
@@ -151,7 +153,7 @@ export default function App() {
     }
   };
 
-  const sources = [invoices, quotes, products, expenses, customers, billingContracts, employees, payroll, budgets, payments, users, activityLogs];
+  const sources = [invoices, quotes, products, expenses, customers, billingContracts, employees, payroll, attendance, payrollPeriods, finalSettlements, budgets, payments, users, activityLogs];
   const dataError = sources.find((source) => source.error)?.error;
 
   return <>

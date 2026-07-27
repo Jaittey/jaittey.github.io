@@ -38,7 +38,7 @@ export default function Dashboard({ invoices, expenses, products, customers, emp
     ['quotes', '◫', 'Quotations'],
     ['customers', '◎', 'Customers'],
     ['products', '□', 'Inventory'],
-    ['expenses', '↘', 'Expenses'],
+    ['attendance', '◷', 'Attendance'],
     ['payroll', '▣', 'Payroll'],
   ];
   const userActions = managerActions.slice(0, 4);

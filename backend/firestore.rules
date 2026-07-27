@@ -42,8 +42,33 @@ service cloud.firestore {
       return hasAccess() && role() == "user";
     }
 
-    function salesAccess() {
+    function operationalAccess() {
       return isManager() || isUser();
+    }
+
+    function payrollPeriodPath(month) {
+      return /databases/$(database)/documents/payrollPeriods/$(month);
+    }
+
+    function payrollPeriodOpen(month) {
+      return !exists(payrollPeriodPath(month))
+        || get(payrollPeriodPath(month)).data.status == "OPEN";
+    }
+
+    function payrollAdministrativeChange() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "status",
+        "paymentDate",
+        "paidAt",
+        "approvedAt",
+        "approvedBy",
+        "driveFileId",
+        "driveWebViewLink",
+        "driveUpdatedAt",
+        "cancelledReason",
+        "finalSettlementId",
+        "updatedAt"
+      ]);
     }
 
     match /userAccess/{emailId} {
@@ -51,24 +76,70 @@ service cloud.firestore {
       allow create, update, delete: if isOwner();
     }
 
-    // Manager and User: Quotations, Invoices, Customers and Inventory.
+    // Manager and User operational modules.
     match /customers/{id} {
-      allow read, write: if salesAccess();
+      allow read, write: if operationalAccess();
     }
 
     match /products/{id} {
-      allow read, write: if salesAccess();
+      allow read, write: if operationalAccess();
     }
 
     match /invoices/{id} {
-      allow read, write: if salesAccess();
+      allow read, write: if operationalAccess();
     }
 
     match /quotes/{id} {
-      allow read, write: if salesAccess();
+      allow read, write: if operationalAccess();
     }
 
-    // Manager-only operational departments.
+    // Employee profiles are visible to both roles, but only Managers may change payroll settings.
+    match /employees/{id} {
+      allow read: if operationalAccess();
+      allow create, update, delete: if isManager();
+    }
+
+    // Daily attendance may be entered by Manager or User only while the payroll month is open.
+    match /attendance/{id} {
+      allow read: if operationalAccess();
+      allow create: if operationalAccess()
+        && request.resource.data.attendanceMonth is string
+        && payrollPeriodOpen(request.resource.data.attendanceMonth);
+      allow update: if operationalAccess()
+        && resource.data.attendanceMonth is string
+        && request.resource.data.attendanceMonth == resource.data.attendanceMonth
+        && payrollPeriodOpen(resource.data.attendanceMonth);
+      allow delete: if isManager()
+        && resource.data.attendanceMonth is string
+        && payrollPeriodOpen(resource.data.attendanceMonth);
+    }
+
+    // Users can review and print salary information. Managers perform all payroll changes.
+    match /payroll/{id} {
+      allow read: if operationalAccess();
+      allow create: if isManager()
+        && (request.resource.data.recordType == "FINAL_SETTLEMENT"
+          || (request.resource.data.salaryMonth is string
+            && payrollPeriodOpen(request.resource.data.salaryMonth)));
+      allow update: if isManager()
+        && ((resource.data.salaryMonth is string && payrollPeriodOpen(resource.data.salaryMonth))
+          || payrollAdministrativeChange());
+      allow delete: if isManager()
+        && resource.data.salaryMonth is string
+        && payrollPeriodOpen(resource.data.salaryMonth);
+    }
+
+    match /payrollPeriods/{month} {
+      allow read: if operationalAccess();
+      allow create, update, delete: if isManager();
+    }
+
+    match /finalSettlements/{id} {
+      allow read: if operationalAccess();
+      allow create, update, delete: if isManager();
+    }
+
+    // Manager-only finance and administration modules.
     match /payments/{id} {
       allow read, write: if isManager();
     }
@@ -84,19 +155,10 @@ service cloud.firestore {
       }
     }
 
-    match /employees/{id} {
-      allow read, write: if isManager();
-    }
-
-    match /payroll/{id} {
-      allow read, write: if isManager();
-    }
-
     match /budgets/{id} {
       allow read, write: if isManager();
     }
 
-    // All authorized accounts need read-only company settings for PDFs and currency.
     match /settings/{id} {
       allow read: if hasAccess();
       allow write: if isOwner();

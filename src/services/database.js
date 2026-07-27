@@ -6,6 +6,7 @@ import {
   runTransaction,
   serverTimestamp,
   setDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { auth } from '../config/firebase';
 import { db } from '../config/firebase';
@@ -176,7 +177,112 @@ export async function savePayrollRecord(data, existingId = null) {
     }, { merge: true });
   });
 
+  await writeActivity(existingId ? 'UPDATE PAYROLL' : 'CREATE PAYROLL', 'payroll', payrollId);
   return payrollId;
+}
+
+export async function saveAttendanceBatch(records = []) {
+  if (!records.length) return 0;
+  const batch = writeBatch(db);
+  records.forEach((record) => {
+    if (!record.employeeId || !record.date) throw new Error('Employee and attendance date are required.');
+    const id = `${record.employeeId}_${record.date}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+    batch.set(doc(db, 'attendance', id), {
+      ...record,
+      attendanceMonth: record.attendanceMonth || String(record.date).slice(0, 7),
+      updatedAt: serverTimestamp(),
+      createdAt: record.createdAt || serverTimestamp(),
+    }, { merge: true });
+  });
+  await batch.commit();
+  await writeActivity('SAVE DAILY ATTENDANCE', 'attendance', records[0]?.date || '');
+  return records.length;
+}
+
+export async function setPayrollMonthStatus(month, status, payrollIds = [], options = {}) {
+  if (!month) throw new Error('Payroll month is required.');
+  const periodRef = doc(db, 'payrollPeriods', month);
+  await runTransaction(db, async (transaction) => {
+    const periodSnapshot = await transaction.get(periodRef);
+    const current = periodSnapshot.exists() ? periodSnapshot.data() : {};
+    const data = {
+      month,
+      status,
+      updatedAt: serverTimestamp(),
+      ...(periodSnapshot.exists() ? {} : { createdAt: serverTimestamp() }),
+    };
+    if (status === 'APPROVED') {
+      data.approvedAt = serverTimestamp();
+      data.approvedBy = auth.currentUser?.email || '';
+    }
+    if (status === 'CLOSED') {
+      data.closedAt = serverTimestamp();
+      data.closedBy = auth.currentUser?.email || '';
+    }
+    if (status === 'OPEN' && current.status && current.status !== 'OPEN') {
+      data.reopenedAt = serverTimestamp();
+      data.reopenedBy = auth.currentUser?.email || '';
+    }
+    transaction.set(periodRef, data, { merge: true });
+
+    payrollIds.forEach((id) => {
+      const payrollRef = doc(db, 'payroll', id);
+      if (status === 'APPROVED') transaction.set(payrollRef, { status: 'APPROVED', approvedAt: serverTimestamp(), approvedBy: auth.currentUser?.email || '', updatedAt: serverTimestamp() }, { merge: true });
+      if (options.markPaid) transaction.set(payrollRef, { status: 'PAID', paymentDate: options.paymentDate || new Date().toISOString().slice(0, 10), paidAt: serverTimestamp(), updatedAt: serverTimestamp() }, { merge: true });
+    });
+  });
+  await writeActivity(`${status} PAYROLL MONTH`, 'payrollPeriods', month);
+}
+
+export async function processFinalSettlementRecord(employee, settlement) {
+  if (!employee?.id || !settlement?.lastWorkingDate) throw new Error('Employee and last working date are required.');
+  const settlementId = `${employee.id}_${settlement.lastWorkingDate}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const finalRef = doc(db, 'finalSettlements', settlementId);
+  const historyRef = doc(db, 'payroll', `FINAL_${settlementId}`);
+  const employeeRef = doc(db, 'employees', employee.id);
+  const salaryMonth = settlement.salaryMonth || String(settlement.lastWorkingDate).slice(0, 7);
+  const regularPayrollRef = doc(db, 'payroll', `${employee.id}_${salaryMonth}`.replace(/[^a-zA-Z0-9_-]/g, '_'));
+
+  await runTransaction(db, async (transaction) => {
+    const existing = await transaction.get(finalRef);
+    const regularPayroll = await transaction.get(regularPayrollRef);
+    if (existing.exists()) throw new Error('A final settlement already exists for this employee and last working date.');
+    if (regularPayroll.exists() && regularPayroll.data().status === 'PAID') {
+      throw new Error('A paid monthly payroll record already exists for the final month. Reopen and correct that payroll before processing the final settlement.');
+    }
+    const common = {
+      ...settlement,
+      employeeId: employee.id,
+      employeeNumber: employee.employeeNumber || '',
+      employeeName: employee.name || '',
+      designation: employee.designation || '',
+      department: employee.department || '',
+      workLocation: employee.workLocation || '',
+      payrollType: employee.payrollType || 'MONTHLY',
+      recordType: 'FINAL_SETTLEMENT',
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    };
+    transaction.set(finalRef, common);
+    transaction.set(historyRef, common);
+    if (regularPayroll.exists()) {
+      transaction.set(regularPayrollRef, {
+        status: 'CANCELLED',
+        cancelledReason: 'Replaced by final salary settlement',
+        finalSettlementId: settlementId,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
+    transaction.set(employeeRef, {
+      status: 'INACTIVE',
+      lastWorkingDate: settlement.lastWorkingDate,
+      leavingReason: settlement.reasonForLeaving || '',
+      finalSettlementId: settlementId,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  });
+  await writeActivity('PROCESS FINAL SETTLEMENT', 'finalSettlements', settlementId);
+  return settlementId;
 }
 
 

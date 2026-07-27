@@ -1,22 +1,23 @@
-# DF7 Business v2.1.2 Enterprise
+# DF7 Business v2.1.4 Enterprise
 
-Mobile-friendly department-based ERP for Dhinasha Family 7.
+A private, mobile-friendly ERP for Dhinasha Family 7 (DF7), deployed through GitHub Pages with Firebase Authentication, Firestore and Google Drive.
 
-## Main mobile improvements
+## Payroll and attendance update
 
-- Persistent five-button bottom navigation
-- Direct access to invoices, quotations, customers and inventory
-- Full department menu through More or the hamburger button
-- Optional module search inside the full menu
-- Compact two-column dashboard statistics
-- Quick Access buttons above dashboard analytics
-- Smaller mobile header
-- Full-screen mobile forms
+This release adds:
 
-## Access roles
+- Monthly-based and daily-based employee payroll profiles
+- Daily attendance in hours for every active employee
+- Present, Absent, Off Day, Leave, Half Day and Extra Duty statuses
+- Automatic overtime and missed-hour calculations
+- Attendance-driven monthly payroll
+- Automatic refresh of draft payroll after attendance changes
+- Monthly approval, attendance locking, payment and closing workflow
+- Professional salary-slip PDFs
+- Google Drive salary-slip storage by employee and month
+- Final salary settlement and employee deactivation
+- Payroll dashboard, filters, warnings and historical reports
+- Manager and User payroll permissions
+- Fully responsive attendance and payroll pages
 
-- Administrator: owner account with complete access
-- Manager: all operational modules except Administration and User Management
-- User: Invoices, Quotations, Customers and Inventory
-
-See `V2_1_2_MOBILE_UPDATE_SETUP.md` for deployment instructions.
+See `V2_1_4_PAYROLL_ATTENDANCE_SETUP.md` for deployment and operating instructions.

@@ -23,7 +23,7 @@ export const PAGE_PERMISSIONS = {
     'products', 'suppliers', 'assets',
     'reports', 'cloud', 'notifications',
   ],
-  user: ['quotes', 'invoices', 'customers', 'products'],
+  user: ['quotes', 'invoices', 'customers', 'products', 'employees', 'attendance', 'payroll'],
 };
 
 export const canAccessPage = (role, page) => {

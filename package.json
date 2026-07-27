@@ -1,7 +1,7 @@
 {
-  "name": "df7-business-v2-1-3-mobile-drawer-fix",
+  "name": "df7-business-v2-1-4-payroll-attendance",
   "private": true,
-  "version": "2.1.3",
+  "version": "2.1.4",
   "type": "module",
   "scripts": {
     "dev": "vite",

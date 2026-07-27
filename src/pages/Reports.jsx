@@ -10,7 +10,7 @@ const downloadCsv = (name, rows) => {
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 };
 
-export default function Reports({ invoices, quotes, expenses, customers, employees, payroll, products, settings }) {
+export default function Reports({ invoices, quotes, expenses, customers, employees, payroll, attendance = [], finalSettlements = [], products, settings }) {
   const revenue = invoices.filter((row) => row.status !== 'CANCELLED').reduce((sum, row) => sum + safeNumber(row.total), 0);
   const expenseTotal = expenses.reduce((sum, row) => sum + safeNumber(row.amount), 0);
   const payrollTotal = payroll.filter((row) => row.status !== 'CANCELLED').reduce((sum, row) => sum + safeNumber(row.grossSalary), 0);
@@ -21,7 +21,9 @@ export default function Reports({ invoices, quotes, expenses, customers, employe
     ['Quotation report', `${quotes.length} quotations`, () => downloadCsv('df7-quotations', [['Quotation', 'Customer', 'Status', 'Total'], ...quotes.map((row) => [row.quoteNumber, row.customerName, row.status, row.total])])],
     ['Customer report', `${customers.length} customers`, () => downloadCsv('df7-customers', [['Name', 'Organisation', 'Phone', 'Email'], ...customers.map((row) => [row.name, row.organisation, row.phone, row.email])])],
     ['Employee report', `${employees.length} employees`, () => downloadCsv('df7-employees', [['Employee ID', 'Name', 'Department', 'Designation', 'Status'], ...employees.map((row) => [row.employeeNumber, row.name, row.department, row.designation, row.status])])],
-    ['Payroll report', `${payroll.length} salary records · ${currency(payrollTotal, settings.currency)}`, () => downloadCsv('df7-payroll', [['Salary Slip', 'Employee', 'Month', 'Status', 'Net Salary'], ...payroll.map((row) => [row.salarySlipNumber, row.employeeName, row.salaryMonth, row.status, row.netSalary])])],
+    ['Payroll report', `${payroll.length} salary records · ${currency(payrollTotal, settings.currency)}`, () => downloadCsv('df7-payroll', [['Salary Slip', 'Employee', 'Month', 'Payroll Type', 'Hours', 'Overtime', 'Missed', 'Status', 'Net Salary'], ...payroll.map((row) => [row.salarySlipNumber, row.employeeName, row.salaryMonth, row.payrollType, row.totalHoursWorked, row.totalOvertimeHours, row.totalMissedHours, row.status, row.netSalary])])],
+    ['Attendance report', `${attendance.length} daily records`, () => downloadCsv('df7-attendance', [['Date', 'Employee ID', 'Employee', 'Payroll Type', 'Status', 'Scheduled Hours', 'Actual Hours', 'Overtime Hours', 'Missed Hours', 'Notes'], ...attendance.map((row) => [row.date, row.employeeNumber, row.employeeName, row.payrollType, row.status, row.scheduledHours, row.actualHours, row.overtimeHours, row.missedHours, row.notes])])],
+    ['Final settlement report', `${finalSettlements.length} completed settlements`, () => downloadCsv('df7-final-settlements', [['Salary Slip', 'Employee', 'Last Working Date', 'Reason', 'Prorated Basic', 'Overtime Pay', 'Deductions', 'Final Net', 'Status'], ...finalSettlements.map((row) => [row.salarySlipNumber, row.employeeName, row.lastWorkingDate, row.reasonForLeaving, row.proratedBasicSalary, row.overtimePay, row.totalDeductions, row.finalNetAmount, row.status || row.settlementStatus])])],
     ['Stock report', `${products.length} products`, () => downloadCsv('df7-stock', [['Product', 'Quantity', 'Threshold', 'Price'], ...products.map((row) => [row.name, row.quantity, row.threshold, row.price])])],
   ];
 
