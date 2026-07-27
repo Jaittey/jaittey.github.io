@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   runTransaction,
   serverTimestamp,
   setDoc,
@@ -320,4 +321,24 @@ export async function receivePayment(invoice, payment) {
 
   await writeActivity('RECEIVE PAYMENT', 'payments', paymentRef.id);
   return paymentRef.id;
+}
+
+export async function saveAttendanceShift(shift) {
+  const id = (shift.id || shift.name || `shift-${Date.now()}`).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  if (shift.isDefault) {
+    const shifts = await getDocs(collection(db, 'attendanceShifts'));
+    const batch = writeBatch(db);
+    shifts.docs.forEach((snapshot) => batch.set(snapshot.ref, { isDefault: snapshot.id === id, updatedAt: serverTimestamp() }, { merge: true }));
+    batch.set(doc(db, 'attendanceShifts', id), { ...shift, id, isDefault: true, active: shift.active !== false, updatedAt: serverTimestamp(), createdAt: shift.createdAt || serverTimestamp() }, { merge: true });
+    await batch.commit();
+  } else {
+    await setDoc(doc(db, 'attendanceShifts', id), { ...shift, id, active: shift.active !== false, updatedAt: serverTimestamp(), createdAt: shift.createdAt || serverTimestamp() }, { merge: true });
+  }
+  await writeActivity('SAVE ATTENDANCE SHIFT', 'attendanceShifts', id);
+  return id;
+}
+
+export async function deleteAttendanceShift(id) {
+  await deleteDoc(doc(db, 'attendanceShifts', id));
+  await writeActivity('DELETE ATTENDANCE SHIFT', 'attendanceShifts', id);
 }

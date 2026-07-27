@@ -1,7 +1,7 @@
 {
-  "name": "df7-business-v2-1-4-payroll-attendance",
+  "name": "df7-business-v2-1-5-attendance-calendar",
   "private": true,
-  "version": "2.1.4",
+  "version": "2.1.5",
   "type": "module",
   "scripts": {
     "dev": "vite",

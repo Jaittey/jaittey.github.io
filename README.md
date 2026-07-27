@@ -21,3 +21,7 @@ This release adds:
 - Fully responsive attendance and payroll pages
 
 See `V2_1_4_PAYROLL_ATTENDANCE_SETUP.md` for deployment and operating instructions.
+
+## v2.1.5 Attendance Calendar
+
+Attendance now begins with an employee list and opens an individual monthly duty calendar. Morning, Evening and Night shifts are available as quick presets, with custom times and an Administrator-only shift settings page.

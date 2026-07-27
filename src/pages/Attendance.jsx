@@ -1,206 +1,143 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
 import { saveAttendanceBatch, savePayrollRecord } from '../services/database';
 import { dateText, inputDate, safeNumber, salaryMonthLabel } from '../utils/format';
-import {
-  ATTENDANCE_STATUSES,
-  PAYROLL_TYPES,
-  attendanceStatusLabel,
-  dateMonthKey,
-  calculateAttendancePayroll,
-  defaultAttendanceForEmployee,
-  deriveAttendance,
-  missingAttendanceDates,
-  payrollTypeLabel,
-  summarizeAttendance,
-} from '../utils/payroll';
+import { PAYROLL_TYPES, calculateAttendancePayroll, dateMonthKey, defaultAttendanceForEmployee, deriveAttendance, missingAttendanceDates, payrollTypeLabel, summarizeAttendance } from '../utils/payroll';
+import { normalizeShifts, shiftHours } from '../utils/shifts';
 
-const statusActualHours = (status, scheduled) => {
-  if (['ABSENT', 'OFF_DAY', 'LEAVE'].includes(status)) return 0;
-  if (status === 'HALF_DAY') return scheduled / 2;
-  if (status === 'EXTRA_DUTY') return scheduled * 1.5;
-  return scheduled;
+const monthDates = (month) => {
+  const [year, number] = month.split('-').map(Number);
+  const last = new Date(year, number, 0).getDate();
+  return Array.from({ length: last }, (_, index) => `${month}-${String(index + 1).padStart(2, '0')}`);
 };
+const weekday = (date) => new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' });
+const initials = (name = '') => name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 
-export default function Attendance({ attendance, employees, payroll = [], payrollPeriods, settings, notify, role }) {
-  const [selectedDate, setSelectedDate] = useState(inputDate());
+export default function Attendance({ attendance, employees, payroll = [], payrollPeriods, shifts = [], settings, notify, role }) {
   const [selectedMonth, setSelectedMonth] = useState(inputDate().slice(0, 7));
-  const [employeeFilter, setEmployeeFilter] = useState('ALL');
-  const [drafts, setDrafts] = useState({});
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [search, setSearch] = useState('');
+  const [missingOpen, setMissingOpen] = useState(false);
+  const [missingDrafts, setMissingDrafts] = useState({});
   const [saving, setSaving] = useState(false);
 
-  const activeEmployees = useMemo(() => employees
-    .filter((employee) => employee.status === 'ACTIVE' && (!employee.joiningDate || employee.joiningDate <= selectedDate))
-    .sort((a, b) => (a.name || '').localeCompare(b.name || '')), [employees, selectedDate]);
-
-  const dayRecords = useMemo(() => attendance.filter((row) => row.date === selectedDate), [attendance, selectedDate]);
-  const monthRecords = useMemo(() => attendance.filter((row) => row.attendanceMonth === selectedMonth || dateMonthKey(row.date) === selectedMonth), [attendance, selectedMonth]);
+  const activeEmployees = useMemo(() => employees.filter((employee) => employee.status === 'ACTIVE').sort((a, b) => (a.name || '').localeCompare(b.name || '')), [employees]);
+  const visibleEmployees = activeEmployees.filter((employee) => `${employee.name} ${employee.employeeNumber} ${employee.workLocation}`.toLowerCase().includes(search.toLowerCase()));
+  const selectedEmployee = activeEmployees.find((employee) => employee.id === selectedEmployeeId);
+  const shiftOptions = normalizeShifts(shifts);
+  const defaultShift = shiftOptions.find((shift) => shift.isDefault) || shiftOptions[0];
   const period = payrollPeriods.find((row) => row.id === selectedMonth || row.month === selectedMonth);
-  const periodStatus = period?.status || 'OPEN';
-  const locked = ['APPROVED', 'CLOSED'].includes(periodStatus);
+  const locked = ['APPROVED', 'CLOSED'].includes(period?.status || 'OPEN');
+  const employeeRecords = attendance.filter((row) => row.employeeId === selectedEmployeeId && (row.attendanceMonth || dateMonthKey(row.date)) === selectedMonth);
+  const recordMap = Object.fromEntries(employeeRecords.map((row) => [row.date, row]));
+  const summary = selectedEmployee ? summarizeAttendance(employeeRecords, selectedEmployee) : null;
+  const missingDates = selectedEmployee ? missingAttendanceDates(selectedEmployee, selectedMonth, attendance) : [];
 
-  useEffect(() => {
-    const existingByEmployee = Object.fromEntries(dayRecords.map((row) => [row.employeeId, row]));
-    const next = {};
-    activeEmployees.forEach((employee) => {
-      next[employee.id] = deriveAttendance(
-        existingByEmployee[employee.id] || defaultAttendanceForEmployee(employee, selectedDate),
-        employee,
-      );
-    });
-    setDrafts(next);
-  }, [selectedDate, dayRecords, activeEmployees]);
-
-  const updateDraft = (employee, patch) => {
-    setDrafts((current) => ({
-      ...current,
-      [employee.id]: deriveAttendance({ ...current[employee.id], ...patch }, employee),
-    }));
+  const saveRecord = async (employee, date, patch) => {
+    if (locked) return notify(`${salaryMonthLabel(selectedMonth)} attendance is locked.`, 'error');
+    const existing = recordMap[date] || defaultAttendanceForEmployee(employee, date);
+    const row = deriveAttendance({
+      ...existing,
+      ...patch,
+      employeeId: employee.id,
+      employeeNumber: employee.employeeNumber || '',
+      employeeName: employee.name || '',
+      designation: employee.designation || '',
+      workLocation: employee.workLocation || '',
+      payrollType: employee.payrollType || PAYROLL_TYPES.MONTHLY,
+      attendanceMonth: selectedMonth,
+      date,
+      enteredByRole: role,
+    }, employee);
+    await saveAttendanceBatch([row]);
+    const existingPayroll = payroll.find((item) => item.employeeId === employee.id && item.salaryMonth === selectedMonth && item.recordType !== 'FINAL_SETTLEMENT');
+    if (existingPayroll) {
+      const combined = employeeRecords.filter((item) => item.date !== date).concat(row);
+      await savePayrollRecord({ ...existingPayroll, ...calculateAttendancePayroll(employee, combined, existingPayroll), attendanceRecordCount: combined.length, missingAttendanceCount: missingAttendanceDates(employee, selectedMonth, combined).length, status: existingPayroll.status === 'PAID' ? 'PAID' : 'DRAFT' }, existingPayroll.id);
+    }
+    notify(`Attendance saved for ${dateText(date)}.`);
   };
 
-  const changeStatus = (employee, status) => {
-    const current = drafts[employee.id] || defaultAttendanceForEmployee(employee, selectedDate);
-    const scheduled = safeNumber(current.scheduledHours || employee.standardDailyHours || 8);
-    updateDraft(employee, {
-      status,
-      actualHours: statusActualHours(status, scheduled),
-      leaveDeductible: status === 'LEAVE' ? Boolean(current.leaveDeductible) : false,
-    });
+  const applyShift = async (date, shift) => {
+    const hours = shiftHours(shift.startTime, shift.endTime);
+    await saveRecord(selectedEmployee, date, { shiftId: shift.id, shiftName: shift.name, startTime: shift.startTime, endTime: shift.endTime, scheduledHours: hours, actualHours: hours, status: 'PRESENT' });
   };
 
-  const saveAll = async () => {
-    if (locked) return notify(`Attendance is locked because ${salaryMonthLabel(selectedMonth)} payroll is ${periodStatus}.`, 'error');
-    const records = activeEmployees.map((employee) => {
-      const draft = deriveAttendance(drafts[employee.id] || defaultAttendanceForEmployee(employee, selectedDate), employee);
-      return {
-        ...draft,
-        employeeId: employee.id,
-        employeeNumber: employee.employeeNumber || '',
-        employeeName: employee.name || '',
-        designation: employee.designation || '',
-        workLocation: employee.workLocation || '',
-        payrollType: employee.payrollType || PAYROLL_TYPES.MONTHLY,
-        date: selectedDate,
-        attendanceMonth: dateMonthKey(selectedDate),
-        enteredByRole: role,
-      };
-    });
+  const openMissing = () => {
+    const initial = {};
+    missingDates.forEach((date) => { initial[date] = { shiftId: defaultShift.id, startTime: defaultShift.startTime, endTime: defaultShift.endTime, status: 'PRESENT' }; });
+    setMissingDrafts(initial);
+    setMissingOpen(true);
+  };
 
-    const invalid = records.find((row) => row.actualHours < 0 || row.scheduledHours < 0);
-    if (invalid) return notify('Working hours cannot be negative.', 'error');
-
+  const saveMissing = async () => {
+    if (!selectedEmployee || !missingDates.length) return;
     setSaving(true);
     try {
+      const records = missingDates.map((date) => {
+        const draft = missingDrafts[date] || {};
+        const shift = shiftOptions.find((item) => item.id === draft.shiftId) || defaultShift;
+        const hours = draft.status === 'OFF_DAY' || draft.status === 'ABSENT' ? 0 : shiftHours(draft.startTime || shift.startTime, draft.endTime || shift.endTime);
+        return deriveAttendance({
+          ...defaultAttendanceForEmployee(selectedEmployee, date),
+          shiftId: shift.id, shiftName: shift.name,
+          startTime: draft.startTime || shift.startTime, endTime: draft.endTime || shift.endTime,
+          scheduledHours: hours || safeNumber(selectedEmployee.standardDailyHours || 8), actualHours: hours,
+          status: draft.status || 'PRESENT', notes: draft.notes || '',
+        }, selectedEmployee);
+      });
       await saveAttendanceBatch(records);
-
-      let refreshedPayroll = 0;
-      const monthKey = dateMonthKey(selectedDate);
-      for (const employee of activeEmployees) {
-        const existingPayroll = payroll.find((row) => row.employeeId === employee.id && row.salaryMonth === monthKey && row.recordType !== 'FINAL_SETTLEMENT');
-        if (!existingPayroll) continue;
-        const savedRecord = records.find((row) => row.employeeId === employee.id);
-        const combinedAttendance = attendance
-          .filter((row) => row.employeeId === employee.id && (row.attendanceMonth || dateMonthKey(row.date)) === monthKey && row.date !== selectedDate)
-          .concat(savedRecord ? [savedRecord] : []);
-        const totals = calculateAttendancePayroll(employee, combinedAttendance, existingPayroll);
-        const missing = missingAttendanceDates(employee, monthKey, combinedAttendance);
-        await savePayrollRecord({
-          ...existingPayroll,
-          ...totals,
-          attendanceRecordCount: combinedAttendance.length,
-          missingAttendanceCount: missing.length,
-          status: existingPayroll.status === 'PAID' ? 'PAID' : 'DRAFT',
-          recalculatedFromAttendanceAt: new Date().toISOString(),
-        }, existingPayroll.id);
-        refreshedPayroll += 1;
-      }
-
-      notify(`Attendance saved for ${records.length} employee${records.length === 1 ? '' : 's'} on ${dateText(selectedDate)}.${refreshedPayroll ? ` ${refreshedPayroll} draft payroll calculation${refreshedPayroll === 1 ? '' : 's'} refreshed automatically.` : ''}`);
-    } catch (reason) {
-      notify(reason?.message || 'Could not save attendance.', 'error');
-    } finally {
-      setSaving(false);
-    }
+      notify(`${records.length} missing attendance date${records.length === 1 ? '' : 's'} updated.`);
+      setMissingOpen(false);
+    } catch (reason) { notify(reason?.message || 'Could not save missing attendance.', 'error'); }
+    finally { setSaving(false); }
   };
 
-  const summaryEmployees = useMemo(() => employees.filter((employee) => employee.status === 'ACTIVE' || monthRecords.some((row) => row.employeeId === employee.id)), [employees, monthRecords]);
-
-  const summaryRows = useMemo(() => summaryEmployees.map((employee) => {
-    const rows = monthRecords.filter((row) => row.employeeId === employee.id);
-    const summary = summarizeAttendance(rows, employee);
-    const missing = missingAttendanceDates(employee, selectedMonth, monthRecords);
-    return { employee, ...summary, missingCount: missing.length, missingDates: missing };
-  }).filter((row) => employeeFilter === 'ALL' || row.employee.id === employeeFilter), [summaryEmployees, monthRecords, selectedMonth, employeeFilter]);
-
-  const monthSummary = summaryRows.reduce((totals, row) => ({
-    hours: totals.hours + row.totalHoursWorked,
-    overtime: totals.overtime + row.totalOvertimeHours,
-    missed: totals.missed + row.totalMissedHours,
-    absent: totals.absent + row.totalAbsentDays,
-    missing: totals.missing + row.missingCount,
-  }), { hours: 0, overtime: 0, missed: 0, absent: 0, missing: 0 });
+  if (!selectedEmployee) return <>
+    <div className="page-actions"><div><p className="eyebrow">ATTENDANCE</p><h2>Employee attendance</h2><p className="page-subtitle">Select an employee to open their monthly duty calendar.</p></div><label className="attendance-month-picker"><span>Month</span><input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /></label></div>
+    <section className="panel attendance-employee-toolbar"><input placeholder="Search employee, ID or location…" value={search} onChange={(e) => setSearch(e.target.value)} /><span>{visibleEmployees.length} active employee{visibleEmployees.length === 1 ? '' : 's'}</span></section>
+    <section className="attendance-employee-list">
+      {visibleEmployees.map((employee) => {
+        const rows = attendance.filter((row) => row.employeeId === employee.id && (row.attendanceMonth || dateMonthKey(row.date)) === selectedMonth);
+        const missing = missingAttendanceDates(employee, selectedMonth, attendance).length;
+        return <button className="panel attendance-employee-card" key={employee.id} onClick={() => setSelectedEmployeeId(employee.id)}>
+          <span className="attendance-avatar">{initials(employee.name)}</span><span className="attendance-employee-copy"><strong>{employee.name}</strong><small>{employee.employeeNumber} · {employee.designation || 'Employee'}</small><small>{employee.workLocation || 'No work location'}</small></span><span className="attendance-employee-meta"><b>{rows.length}</b><small>recorded</small><em className={missing ? 'missing' : 'complete'}>{missing ? `${missing} missing` : 'Complete'}</em></span><span className="attendance-open-arrow">›</span>
+        </button>;
+      })}
+      {!visibleEmployees.length && <article className="panel"><EmptyState icon="♙" title="No active employees" text="Add or activate employees in Employee Management." /></article>}
+    </section>
+  </>;
 
   return <>
-    <section className="attendance-toolbar panel">
-      <div>
-        <p className="eyebrow">DAILY ATTENDANCE</p>
-        <h2>Record hours for every active employee</h2>
-        <p>Monthly employees receive overtime or missed-hour calculations. Daily employees are paid from actual hours only.</p>
-      </div>
-      <div className="attendance-date-control">
-        <label><span>Attendance date</span><input type="date" value={selectedDate} onChange={(event) => { setSelectedDate(event.target.value); setSelectedMonth(event.target.value.slice(0, 7)); }} /></label>
-        <span className={`period-lock-badge ${locked ? 'locked' : 'open'}`}>{locked ? `🔒 ${periodStatus}` : '✓ OPEN'}</span>
-      </div>
+    <section className="attendance-calendar-header panel">
+      <button className="button button-ghost" onClick={() => setSelectedEmployeeId('')}>← Employees</button>
+      <div className="attendance-calendar-person"><span className="attendance-avatar">{initials(selectedEmployee.name)}</span><div><p className="eyebrow">MONTHLY ATTENDANCE</p><h2>{selectedEmployee.name}</h2><p>{selectedEmployee.employeeNumber} · {payrollTypeLabel(selectedEmployee.payrollType)} · {selectedEmployee.workLocation || selectedEmployee.designation}</p></div></div>
+      <div className="attendance-calendar-actions"><label><span>Month</span><input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} /></label><button className={`button ${missingDates.length ? 'button-primary' : 'button-secondary'}`} onClick={openMissing} disabled={!missingDates.length || locked}>Missing Attendance Dates ({missingDates.length})</button></div>
     </section>
-
-    {locked && <div className="alert alert-error">Attendance for {salaryMonthLabel(selectedMonth)} is locked. A Manager must reopen the payroll month before records can be changed.</div>}
-
-    <section className="attendance-day-grid">
-      {activeEmployees.map((employee) => {
-        const row = drafts[employee.id] || defaultAttendanceForEmployee(employee, selectedDate);
-        const isMonthly = (employee.payrollType || PAYROLL_TYPES.MONTHLY) === PAYROLL_TYPES.MONTHLY;
-        return <article className="panel attendance-entry-card" key={employee.id}>
-          <header>
-            <div className="attendance-avatar">{employee.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</div>
-            <div><h3>{employee.name}</h3><p>{employee.employeeNumber} · {employee.workLocation || employee.designation}</p></div>
-            <span className={`payroll-chip ${isMonthly ? 'monthly' : 'daily'}`}>{isMonthly ? 'Monthly' : 'Daily'}</span>
-          </header>
-
-          <div className="attendance-input-grid">
-            <label><span>Status</span><select disabled={locked} value={row.status} onChange={(event) => changeStatus(employee, event.target.value)}>{ATTENDANCE_STATUSES.map((status) => <option value={status} key={status}>{attendanceStatusLabel(status)}</option>)}</select></label>
-            <label><span>Scheduled hours</span><input disabled={locked} type="number" min="0" step="0.25" value={row.scheduledHours} onChange={(event) => updateDraft(employee, { scheduledHours: event.target.value })} /></label>
-            <label><span>Actual hours worked</span><input disabled={locked} type="number" min="0" step="0.25" value={row.actualHours} onChange={(event) => updateDraft(employee, { actualHours: event.target.value })} /></label>
-            <div className="attendance-result overtime"><span>Extra / OT</span><strong>{safeNumber(row.overtimeHours).toFixed(2)} hrs</strong></div>
-            <div className="attendance-result missed"><span>Missed</span><strong>{safeNumber(row.missedHours).toFixed(2)} hrs</strong></div>
-          </div>
-
-          {row.status === 'LEAVE' && isMonthly && <label className="checkbox-label attendance-leave-toggle"><input disabled={locked} type="checkbox" checked={Boolean(row.leaveDeductible)} onChange={(event) => updateDraft(employee, { leaveDeductible: event.target.checked })} /><span>Deduct missed hours for this leave</span></label>}
-          <label className="attendance-notes"><span>Notes</span><input disabled={locked} value={row.notes || ''} onChange={(event) => updateDraft(employee, { notes: event.target.value })} placeholder="Optional note" /></label>
-          <footer><small>{payrollTypeLabel(employee.payrollType)}</small><strong>{isMonthly ? 'Off Day and approved leave do not deduct salary.' : 'Payment uses actual hours, including extra duty.'}</strong></footer>
+    {locked && <div className="alert alert-error">🔒 This payroll month is {period.status}. Attendance cannot be changed until a Manager reopens it.</div>}
+    <section className="attendance-summary-strip">
+      <article><span>Worked</span><strong>{summary.totalHoursWorked.toFixed(1)}h</strong></article><article><span>Overtime</span><strong>{summary.totalOvertimeHours.toFixed(1)}h</strong></article><article><span>Missed</span><strong>{summary.totalMissedHours.toFixed(1)}h</strong></article><article><span>Off days</span><strong>{summary.totalOffDays}</strong></article><article><span>Absent</span><strong>{summary.totalAbsentDays}</strong></article>
+    </section>
+    <section className="attendance-calendar-grid">
+      {monthDates(selectedMonth).map((date) => {
+        const row = recordMap[date];
+        return <article className={`attendance-calendar-day panel ${row ? 'recorded' : 'missing'}`} key={date}>
+          <header><div><strong>{Number(date.slice(-2))}</strong><span>{weekday(date)}</span></div><span className={`attendance-day-status ${row ? '' : 'missing'}`}>{row ? row.status?.replace('_', ' ') : 'MISSING'}</span></header>
+          <div className="shift-quick-selector">{shiftOptions.slice(0, 3).map((shift) => <button disabled={locked} className={row?.shiftId === shift.id ? 'active' : ''} key={shift.id} onClick={() => applyShift(date, shift)}><b>{shift.name}</b><small>{shift.startTime}–{shift.endTime}</small></button>)}</div>
+          <div className="custom-shift-row"><input disabled={locked} aria-label="Start time" type="time" value={row?.startTime || defaultShift.startTime} onChange={(e) => saveRecord(selectedEmployee, date, { startTime: e.target.value, endTime: row?.endTime || defaultShift.endTime, shiftName: 'Custom', shiftId: 'custom', scheduledHours: shiftHours(e.target.value, row?.endTime || defaultShift.endTime), actualHours: shiftHours(e.target.value, row?.endTime || defaultShift.endTime), status: 'PRESENT' })} /><span>to</span><input disabled={locked} aria-label="End time" type="time" value={row?.endTime || defaultShift.endTime} onChange={(e) => saveRecord(selectedEmployee, date, { startTime: row?.startTime || defaultShift.startTime, endTime: e.target.value, shiftName: 'Custom', shiftId: 'custom', scheduledHours: shiftHours(row?.startTime || defaultShift.startTime, e.target.value), actualHours: shiftHours(row?.startTime || defaultShift.startTime, e.target.value), status: 'PRESENT' })} /></div>
+          {row && <footer><span>{safeNumber(row.actualHours).toFixed(1)} hours</span><span>{row.shiftName || 'Custom'}</span></footer>}
         </article>;
       })}
     </section>
 
-    {!activeEmployees.length && <section className="panel"><EmptyState icon="◷" title="No active employees" text="Add active employees before recording attendance." /></section>}
-
-    {activeEmployees.length > 0 && <div className="attendance-save-bar"><div><strong>{activeEmployees.length} employees</strong><small>{dateText(selectedDate)}</small></div><button className="button button-primary" disabled={locked || saving} onClick={saveAll}>{saving ? 'Saving attendance…' : 'Save all attendance'}</button></div>}
-
-    <section className="attendance-month-section">
-      <div className="page-actions">
-        <div><p className="eyebrow">MONTHLY TOTALS</p><h2>Attendance summary</h2></div>
-        <div className="employee-filters"><input type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} /><select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}><option value="ALL">All employees</option>{summaryEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></div>
-      </div>
-
-      <section className="stats-grid attendance-summary-stats">
-        <article className="stat-card"><span>◷</span><p>Total hours</p><strong>{monthSummary.hours.toFixed(2)}</strong><small>{salaryMonthLabel(selectedMonth)}</small></article>
-        <article className="stat-card"><span>↗</span><p>Overtime hours</p><strong>{monthSummary.overtime.toFixed(2)}</strong><small>Monthly-based extra duties</small></article>
-        <article className="stat-card"><span>↘</span><p>Missed hours</p><strong>{monthSummary.missed.toFixed(2)}</strong><small>{monthSummary.absent} absent days</small></article>
-        <article className={`stat-card ${monthSummary.missing ? 'warning-stat' : ''}`}><span>!</span><p>Missing attendance</p><strong>{monthSummary.missing}</strong><small>Dates requiring records</small></article>
-      </section>
-
-      <section className="panel">
-        <div className="responsive-table"><table><thead><tr><th>Employee</th><th>Payroll type</th><th>Working days</th><th>Hours</th><th>Overtime</th><th>Missed</th><th>Off days</th><th>Absent</th><th>Missing</th></tr></thead><tbody>{summaryRows.map((row) => <tr key={row.employee.id}><td data-label="Employee"><strong>{row.employee.name}</strong><small className="cell-subtext">{row.employee.employeeNumber}</small></td><td data-label="Payroll type">{row.employee.payrollType === PAYROLL_TYPES.DAILY ? 'Daily' : 'Monthly'}</td><td data-label="Working days">{row.totalWorkingDays}</td><td data-label="Hours">{row.totalHoursWorked.toFixed(2)}</td><td data-label="Overtime">{row.totalOvertimeHours.toFixed(2)}</td><td data-label="Missed">{row.totalMissedHours.toFixed(2)}</td><td data-label="Off days">{row.totalOffDays}</td><td data-label="Absent">{row.totalAbsentDays}</td><td data-label="Missing"><span className={`status ${row.missingCount ? 'status-draft' : 'status-paid'}`}>{row.missingCount}</span></td></tr>)}</tbody></table></div>
-      </section>
-    </section>
+    <Modal open={missingOpen} title={`Missing Attendance — ${selectedEmployee.name}`} onClose={() => setMissingOpen(false)}>
+      <p className="page-subtitle">Assign shifts to all unrecorded dates, then save them together.</p>
+      <div className="missing-attendance-list">{missingDates.map((date) => {
+        const draft = missingDrafts[date] || {};
+        return <article key={date}><div><strong>{dateText(date)}</strong><small>{weekday(date)}</small></div><select value={draft.status || 'PRESENT'} onChange={(e) => setMissingDrafts((current) => ({ ...current, [date]: { ...current[date], status: e.target.value } }))}><option value="PRESENT">Present</option><option value="OFF_DAY">Off Day</option><option value="ABSENT">Absent</option><option value="LEAVE">Leave</option></select><select value={draft.shiftId || defaultShift.id} onChange={(e) => { const shift = shiftOptions.find((item) => item.id === e.target.value); setMissingDrafts((current) => ({ ...current, [date]: { ...current[date], shiftId: shift.id, startTime: shift.startTime, endTime: shift.endTime } })); }}>{shiftOptions.map((shift) => <option value={shift.id} key={shift.id}>{shift.name} ({shift.startTime}–{shift.endTime})</option>)}</select></article>;
+      })}</div>
+      <footer className="modal-actions"><button className="button button-ghost" onClick={() => setMissingOpen(false)}>Cancel</button><button className="button button-primary" disabled={saving} onClick={saveMissing}>{saving ? 'Saving…' : `Save ${missingDates.length} dates`}</button></footer>
+    </Modal>
   </>;
 }

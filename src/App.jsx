@@ -15,6 +15,7 @@ import Billing from './pages/Billing';
 import Employees from './pages/Employees';
 import Payroll from './pages/Payroll';
 import Attendance from './pages/Attendance';
+import AttendanceSettings from './pages/AttendanceSettings';
 import Budget from './pages/Budget';
 import Payments from './pages/Payments';
 import Reports from './pages/Reports';
@@ -41,6 +42,7 @@ export default function App() {
   const employees = useLiveCollection('employees', 'createdAt', authenticated && canAccessPage(role, 'employees'));
   const payroll = useLiveCollection('payroll', 'createdAt', authenticated && canAccessPage(role, 'payroll'));
   const attendance = useLiveCollection('attendance', 'date', authenticated && canAccessPage(role, 'attendance'));
+  const attendanceShifts = useLiveCollection('attendanceShifts', 'updatedAt', authenticated && canAccessPage(role, 'attendance'));
   const payrollPeriods = useLiveCollection('payrollPeriods', 'month', authenticated && canAccessPage(role, 'payroll'));
   const finalSettlements = useLiveCollection('finalSettlements', 'lastWorkingDate', authenticated && canAccessPage(role, 'payroll'));
   const budgets = useLiveCollection('budgets', 'createdAt', authenticated && canAccessPage(role, 'budget'));
@@ -101,7 +103,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.4…</p></div>;
+  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.5…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} theme={theme} toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />;
 
   const common = { settings, notify };
@@ -128,7 +130,8 @@ export default function App() {
         { title: 'Promotions & transfers', icon: '↗', description: 'Structured HR history and attachments.', features: ['Promotions', 'Transfers', 'Resignations', 'Employee notes'], ready: false },
       ]);
       case 'payroll': return <Payroll payroll={payroll.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={() => setPayrollEmployee(null)} initialFinalEmployee={finalSettlementEmployee} clearInitialFinalEmployee={() => setFinalSettlementEmployee(null)} />;
-      case 'attendance': return <Attendance attendance={attendance.items} employees={employees.items} payroll={payroll.items} payrollPeriods={payrollPeriods.items} {...common} role={role} />;
+      case 'attendance': return <Attendance attendance={attendance.items} employees={employees.items} payroll={payroll.items} payrollPeriods={payrollPeriods.items} shifts={attendanceShifts.items} {...common} role={role} />;
+      case 'attendance-settings': return <AttendanceSettings shifts={attendanceShifts.items} notify={notify} />;
       case 'finance': return hub('FINANCIAL MANAGEMENT', 'Finance Overview', 'Income, expenses, budgets and tax controls.', [
         { title: 'Income & payments', icon: '↗', description: 'Revenue and received-payment records.', features: ['Invoice revenue', 'Other income framework', 'Payment history'], ready: true, page: 'payments' },
         { title: 'Expenses', icon: '↘', description: 'Operating expense tracking by category.', features: ['Office', 'Transport', 'Utilities', 'Maintenance'], ready: true, page: 'expenses' },
@@ -153,7 +156,7 @@ export default function App() {
     }
   };
 
-  const sources = [invoices, quotes, products, expenses, customers, billingContracts, employees, payroll, attendance, payrollPeriods, finalSettlements, budgets, payments, users, activityLogs];
+  const sources = [invoices, quotes, products, expenses, customers, billingContracts, employees, payroll, attendance, attendanceShifts, payrollPeriods, finalSettlements, budgets, payments, users, activityLogs];
   const dataError = sources.find((source) => source.error)?.error;
 
   return <>

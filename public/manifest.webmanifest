@@ -1,5 +1,5 @@
 {
-  "name": "DF7 Business v2.1.4 Enterprise",
+  "name": "DF7 Business v2.1.5 Enterprise",
   "short_name": "DF7 Business",
   "start_url": "/",
   "scope": "/",
@@ -14,5 +14,5 @@
       "purpose": "any maskable"
     }
   ],
-  "description": "DF7 ERP with attendance-driven monthly and daily payroll, salary slips and final settlements."
+  "description": "DF7 ERP with employee attendance calendars and customizable shift presets."
 }

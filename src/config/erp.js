@@ -60,7 +60,7 @@ export const ERP_NAV = [
   },
   {
     id: 'payroll-group', label: 'Payroll & Attendance', icon: '▣',
-    children: [['payroll', 'Payroll'], ['attendance', 'Attendance']],
+    children: [['payroll', 'Payroll'], ['attendance', 'Attendance'], ['attendance-settings', 'Attendance Settings']],
   },
   {
     id: 'finance-group', label: 'Financial Management', icon: '◈',
