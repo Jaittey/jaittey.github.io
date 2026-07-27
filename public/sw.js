@@ -1,4 +1,4 @@
-const CACHE = 'df7-shell-v217-attendance-slip-lock';
+const CACHE = 'df7-shell-v218-admin-themes-backup';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.png', '/images/DF7_Logo.png', '/images/DF7_PAID.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));

@@ -27,6 +27,7 @@ export const defaultSettings = {
   quotationValidityDays: 30,
   defaultTerms: 'Payment is due within the stated payment period.',
   quotationDeclaration: 'We confirm that the information and pricing in this quotation are accurate and valid for the stated validity period.',
+  defaultTheme: 'dark',
 };
 
 export function useSettings(enabled = true) {

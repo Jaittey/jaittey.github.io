@@ -1,7 +1,7 @@
 {
-  "name": "df7-business-v2-1-7-attendance-slip-lock",
+  "name": "df7-business-v2-1-8-admin-themes-backup",
   "private": true,
-  "version": "2.1.7",
+  "version": "2.1.8",
   "type": "module",
   "scripts": {
     "dev": "vite",

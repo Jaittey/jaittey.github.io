@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { canAccessPage, ERP_NAV, PAGE_TITLES, ROLE_LABELS, normalizeRole } from '../config/erp';
+import { THEMES } from '../config/themes';
 
 const MOBILE_NAV_MANAGER = [
   ['dashboard', '⌂', 'Home'],
@@ -25,8 +26,9 @@ export default function AppShell({
   connectDrive,
   disconnectDrive,
   businessName,
+  companyLogo,
   theme,
-  toggleTheme,
+  setTheme,
   children,
 }) {
   const [openGroups, setOpenGroups] = useState(['sales', 'crm']);
@@ -102,7 +104,6 @@ export default function AppShell({
 
       <aside
         className={`sidebar enterprise-sidebar mobile-navigation-drawer ${drawerOpen ? 'mobile-open' : ''}`}
-        aria-hidden={!drawerOpen}
       >
         <div className="mobile-drawer-heading">
           <div>
@@ -112,9 +113,9 @@ export default function AppShell({
           <button type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}>×</button>
         </div>
         <div className="sidebar-brand">
-          <div className="sidebar-logo-surface"><img className="sidebar-company-logo" src={`${import.meta.env.BASE_URL}images/DF7_Logo.png`} alt="DF7" /></div>
+          <div className="sidebar-logo-surface"><img className="sidebar-company-logo" src={companyLogo || `${import.meta.env.BASE_URL}images/DF7_Logo.png`} alt="DF7" /></div>
           <span className="sidebar-business-name">{businessName || 'Dhinasha Family 7'}</span>
-          <small className="version-pill">ERP v2.1.7</small>
+          <small className="version-pill">ERP v2.1.8</small>
         </div>
 
         <div className="sidebar-module-search">
@@ -138,9 +139,12 @@ export default function AppShell({
             </div>
           </div>
           <div className="sidebar-account-actions">
-            <button type="button" onClick={toggleTheme}>
-              {theme === 'dark' ? '☀ Light mode' : '☾ Dark mode'}
-            </button>
+            <label className="account-theme-field">
+              <span>Theme</span>
+              <select value={theme} onChange={(event) => setTheme(event.target.value)}>
+                {THEMES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
             <button type="button" onClick={driveConnected ? disconnectDrive : connectDrive}>
               {driveConnected ? '✓ Drive connected' : '☁ Connect Drive'}
             </button>
@@ -155,7 +159,7 @@ export default function AppShell({
         <header className="topbar enterprise-topbar compact-mobile-topbar">
           <button className="mobile-menu-button" aria-label="Open all modules" onClick={() => setDrawerOpen(true)}>☰</button>
           <div className="topbar-title">
-            <p className="eyebrow">DF7 BUSINESS v2.1.7</p>
+            <p className="eyebrow">DF7 BUSINESS v2.1.8</p>
             <h1>{PAGE_TITLES[page] || 'Workspace'}</h1>
           </div>
           <div className="global-search desktop-module-search">
@@ -163,11 +167,9 @@ export default function AppShell({
             {searchResults.length > 0 && <div className="search-results">{searchResults.map(([id, label]) => <button key={id} onClick={() => navigate(id)}>{label}</button>)}</div>}
           </div>
           <div className="topbar-actions desktop-topbar-actions">
-            <button type="button" className="theme-toggle topbar-theme-toggle" onClick={toggleTheme}><span>{theme === 'dark' ? '☀' : '☾'}</span><b>{theme === 'dark' ? 'Light' : 'Dark'}</b></button>
             <button className={`drive-pill ${driveConnected ? 'connected' : ''}`} onClick={driveConnected ? disconnectDrive : connectDrive}><i />{driveConnected ? 'Drive connected' : 'Connect Drive'}</button>
             <img src={user.photoURL || `${import.meta.env.BASE_URL}icon.png`} alt="Account" referrerPolicy="no-referrer" />
           </div>
-          <button type="button" className="mobile-theme-button" aria-label="Change theme" onClick={toggleTheme}>{theme === 'dark' ? '☀' : '☾'}</button>
         </header>
         <main className="content enterprise-content">{children}</main>
       </div>

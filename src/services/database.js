@@ -3,9 +3,11 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   runTransaction,
   serverTimestamp,
   setDoc,
+  Timestamp,
   writeBatch,
 } from 'firebase/firestore';
 import { auth } from '../config/firebase';
@@ -414,4 +416,194 @@ export async function markPayrollAndSalarySlipPaid(payrollId, salarySlipId, paym
   await batch.commit();
   await writeActivity('MARK SALARY PAID', 'payroll', payrollId);
   await writeActivity('MARK SALARY SLIP PAID', 'salarySlips', salarySlipId);
+}
+
+
+// ---------------------------------------------------------------------
+// DF7 v2.1.8 administration, backup, restore and reset
+// ---------------------------------------------------------------------
+export const DF7_BACKUP_COLLECTIONS = [
+  'userAccess',
+  'customers',
+  'products',
+  'invoices',
+  'quotes',
+  'employees',
+  'attendance',
+  'payroll',
+  'salarySlips',
+  'attendanceDocuments',
+  'payrollPeriods',
+  'finalSettlements',
+  'payments',
+  'expenses',
+  'billingContracts',
+  'budgets',
+  'settings',
+  'companyAssets',
+  'activityLogs',
+];
+
+const BACKUP_FORMAT = 'DF7_BUSINESS_BACKUP_V1';
+
+const serializeBackupValue = (value) => {
+  if (value instanceof Timestamp) {
+    return { __df7Type: 'timestamp', value: value.toDate().toISOString() };
+  }
+  if (value instanceof Date) {
+    return { __df7Type: 'date', value: value.toISOString() };
+  }
+  if (Array.isArray(value)) return value.map(serializeBackupValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, serializeBackupValue(item)]));
+  }
+  return value;
+};
+
+const reviveBackupValue = (value) => {
+  if (Array.isArray(value)) return value.map(reviveBackupValue);
+  if (value && typeof value === 'object') {
+    if (value.__df7Type === 'timestamp' && value.value) return Timestamp.fromDate(new Date(value.value));
+    if (value.__df7Type === 'date' && value.value) return new Date(value.value);
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, reviveBackupValue(item)]));
+  }
+  return value;
+};
+
+const runBatches = async (operations = []) => {
+  for (let start = 0; start < operations.length; start += 400) {
+    const batch = writeBatch(db);
+    operations.slice(start, start + 400).forEach((operation) => operation(batch));
+    await batch.commit();
+  }
+};
+
+const readCollectionForBackup = async (collectionName) => {
+  const snapshot = await getDocs(collection(db, collectionName));
+  return snapshot.docs.map((document) => ({
+    id: document.id,
+    data: serializeBackupValue(document.data()),
+  }));
+};
+
+const deleteTopLevelCollection = async (collectionName) => {
+  const snapshot = await getDocs(collection(db, collectionName));
+  const operations = snapshot.docs.map((document) => (batch) => batch.delete(document.ref));
+  await runBatches(operations);
+};
+
+const deleteContractGeneratedPeriods = async () => {
+  const contracts = await getDocs(collection(db, 'billingContracts'));
+  for (const contract of contracts.docs) {
+    const periods = await getDocs(collection(db, 'billingContracts', contract.id, 'generatedPeriods'));
+    const operations = periods.docs.map((period) => (batch) => batch.delete(period.ref));
+    await runBatches(operations);
+  }
+};
+
+export async function saveCompanyAsset(assetId, asset) {
+  if (!['companyLogo', 'companyStamp', 'managerSignature'].includes(assetId)) {
+    throw new Error('Unsupported company asset.');
+  }
+  if (!asset?.dataUrl || !String(asset.dataUrl).startsWith('data:image/')) {
+    throw new Error('A valid optimized image is required.');
+  }
+  if (String(asset.dataUrl).length > 900_000) {
+    throw new Error('The stored image is too large for the company asset record.');
+  }
+
+  await setDoc(doc(db, 'companyAssets', assetId), {
+    ...asset,
+    assetId,
+    uploadedAt: serverTimestamp(),
+    uploadedBy: auth.currentUser?.email || '',
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+  await writeActivity('UPLOAD COMPANY ASSET', 'companyAssets', assetId);
+}
+
+export async function deleteCompanyAsset(assetId) {
+  await deleteDoc(doc(db, 'companyAssets', assetId));
+  await writeActivity('DELETE COMPANY ASSET', 'companyAssets', assetId);
+}
+
+export async function createApplicationBackup() {
+  const collections = {};
+  for (const collectionName of DF7_BACKUP_COLLECTIONS) {
+    collections[collectionName] = await readCollectionForBackup(collectionName);
+  }
+
+  const generatedPeriods = {};
+  for (const contract of collections.billingContracts || []) {
+    const snapshot = await getDocs(collection(db, 'billingContracts', contract.id, 'generatedPeriods'));
+    generatedPeriods[contract.id] = snapshot.docs.map((document) => ({
+      id: document.id,
+      data: serializeBackupValue(document.data()),
+    }));
+  }
+
+  const totalDocuments = Object.values(collections)
+    .reduce((sum, rows) => sum + rows.length, 0)
+    + Object.values(generatedPeriods).reduce((sum, rows) => sum + rows.length, 0);
+
+  return {
+    format: BACKUP_FORMAT,
+    appVersion: '2.1.8',
+    createdAt: new Date().toISOString(),
+    createdBy: auth.currentUser?.email || '',
+    totalDocuments,
+    collections,
+    subcollections: {
+      billingContractsGeneratedPeriods: generatedPeriods,
+    },
+  };
+}
+
+const validateBackup = (backup) => {
+  if (!backup || backup.format !== BACKUP_FORMAT || !backup.collections) {
+    throw new Error('This file is not a valid DF7 Business backup.');
+  }
+  for (const name of Object.keys(backup.collections)) {
+    if (!DF7_BACKUP_COLLECTIONS.includes(name)) {
+      throw new Error(`The backup contains an unsupported collection: ${name}`);
+    }
+    if (!Array.isArray(backup.collections[name])) {
+      throw new Error(`The backup collection ${name} is invalid.`);
+    }
+  }
+};
+
+export async function resetApplicationData() {
+  await deleteContractGeneratedPeriods();
+
+  // Activity logs are deleted last so no stale log remains after reset.
+  const collectionOrder = DF7_BACKUP_COLLECTIONS.filter((name) => name !== 'activityLogs');
+  for (const collectionName of collectionOrder) {
+    await deleteTopLevelCollection(collectionName);
+  }
+  await deleteTopLevelCollection('activityLogs');
+}
+
+export async function restoreApplicationBackup(backup) {
+  validateBackup(backup);
+  await resetApplicationData();
+
+  for (const collectionName of DF7_BACKUP_COLLECTIONS) {
+    const rows = backup.collections[collectionName] || [];
+    const operations = rows.map((row) => (batch) => {
+      batch.set(doc(db, collectionName, row.id), reviveBackupValue(row.data));
+    });
+    await runBatches(operations);
+  }
+
+  const generatedPeriods = backup.subcollections?.billingContractsGeneratedPeriods || {};
+  for (const [contractId, rows] of Object.entries(generatedPeriods)) {
+    const operations = (rows || []).map((row) => (batch) => {
+      batch.set(
+        doc(db, 'billingContracts', contractId, 'generatedPeriods', row.id),
+        reviveBackupValue(row.data),
+      );
+    });
+    await runBatches(operations);
+  }
 }

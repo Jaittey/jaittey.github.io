@@ -64,7 +64,7 @@ async function driveFetch(url, options = {}) {
 }
 
 async function findFolder(name, parentId = null) {
-  const escaped = name.replaceAll("'", "\'");
+  const escaped = name.replaceAll("'", "\\'");
   const clauses = [`name = '${escaped}'`, "mimeType = 'application/vnd.google-apps.folder'", 'trashed = false'];
   if (parentId) clauses.push(`'${parentId}' in parents`);
   const params = new URLSearchParams({ q: clauses.join(' and '), spaces: 'drive', fields: 'files(id,name)', pageSize: '10' });
@@ -165,3 +165,100 @@ export function disconnectDrive() {
 }
 
 export const isDriveConnected = () => Boolean(accessToken && Date.now() < expiresAt);
+
+
+// ---------------------------------------------------------------------
+// DF7 v2.1.8 Google Drive JSON backup helpers
+// ---------------------------------------------------------------------
+function multipartFileBody(blob, metadata, mimeType) {
+  const boundary = `df7_${crypto.randomUUID()}`;
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`,
+    `--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+    blob,
+    `\r\n--${boundary}--`,
+  ], { type: `multipart/related; boundary=${boundary}` });
+  return { boundary, body };
+}
+
+async function createDriveFile(blob, metadata, mimeType) {
+  const token = await requestDriveAccess();
+  const { boundary, body } = multipartFileBody(blob, metadata, mimeType);
+  const response = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,createdTime,modifiedTime,size,mimeType',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    },
+  );
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload?.error?.message || 'Could not upload the backup to Google Drive.');
+  }
+  return response.json();
+}
+
+async function listFilesInFolder(parentId, mimeType = '') {
+  const clauses = [`'${parentId}' in parents`, 'trashed = false'];
+  if (mimeType) clauses.push(`mimeType = '${mimeType}'`);
+  const params = new URLSearchParams({
+    q: clauses.join(' and '),
+    spaces: 'drive',
+    fields: 'files(id,name,webViewLink,createdTime,modifiedTime,size,mimeType)',
+    orderBy: 'createdTime desc',
+    pageSize: '100',
+  });
+  const result = await driveFetch(`https://www.googleapis.com/drive/v3/files?${params}`);
+  return result.files || [];
+}
+
+const backupFileName = (date = new Date()) => {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `DF7_Backup_${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}.json`;
+};
+
+export async function uploadBusinessBackup(backup, rootName = 'DF7 Business') {
+  const root = await getOrCreateFolder(rootName || 'DF7 Business');
+  const backupsFolder = await getOrCreateFolder('Backups', root.id);
+  const content = JSON.stringify(backup, null, 2);
+  const blob = new Blob([content], { type: 'application/json' });
+  return createDriveFile(
+    blob,
+    {
+      name: backupFileName(new Date(backup.createdAt || Date.now())),
+      parents: [backupsFolder.id],
+      description: `DF7 Business backup ${backup.appVersion || ''}`.trim(),
+    },
+    'application/json',
+  );
+}
+
+export async function listBusinessBackups(rootName = 'DF7 Business') {
+  const root = await findFolder(rootName || 'DF7 Business');
+  if (!root) return [];
+  const backupsFolder = await findFolder('Backups', root.id);
+  if (!backupsFolder) return [];
+  return listFilesInFolder(backupsFolder.id, 'application/json');
+}
+
+export async function downloadBusinessBackup(fileId) {
+  if (!fileId) throw new Error('Select a Google Drive backup.');
+  const token = await requestDriveAccess();
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload?.error?.message || 'Could not download the selected backup.');
+  }
+  const backup = await response.json();
+  if (!backup || backup.format !== 'DF7_BUSINESS_BACKUP_V1') {
+    throw new Error('The selected file is not a valid DF7 Business backup.');
+  }
+  return backup;
+}

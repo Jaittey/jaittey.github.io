@@ -40,10 +40,27 @@ function loadCompanyLogoAsDataUrl() {
   return companyLogoDataUrlPromise;
 }
 
-async function addPaidStamp(doc, record, y, options = {}) {
+const dataUrlFormat = (dataUrl = '') => {
+  if (String(dataUrl).startsWith('data:image/jpeg')) return 'JPEG';
+  if (String(dataUrl).startsWith('data:image/webp')) return 'WEBP';
+  return 'PNG';
+};
+
+const addUploadedImage = (doc, dataUrl, x, y, width, height, alias) => {
+  if (!dataUrl) return false;
+  try {
+    doc.addImage(dataUrl, dataUrlFormat(dataUrl), x, y, width, height, alias, 'FAST');
+    return true;
+  } catch (error) {
+    console.warn(error);
+    return false;
+  }
+};
+
+async function addPaidStamp(doc, record, y, options = {}, settings = {}) {
   if (String(record.status || record.paymentStatus || '').toUpperCase() !== 'PAID') return false;
   try {
-    const stamp = await loadPaidStampAsDataUrl();
+    const stamp = settings.paidStampDataUrl || await loadPaidStampAsDataUrl();
     const stampSize = safeNumber(options.size) || 38;
     const stampX = safeNumber(options.x) || 154;
     const maxY = 274 - stampSize;
@@ -56,15 +73,22 @@ async function addPaidStamp(doc, record, y, options = {}) {
   }
 }
 
-async function addCompanyLogo(doc) {
+async function addCompanyLogo(doc, settings = {}) {
   try {
-    const logo = await loadCompanyLogoAsDataUrl();
-    doc.addImage(logo, 'PNG', 14, 7, 55, 28, 'df7-company-logo', 'FAST');
-    return true;
+    const logo = settings.companyLogoDataUrl || await loadCompanyLogoAsDataUrl();
+    return addUploadedImage(doc, logo, 14, 7, 55, 28, 'df7-company-logo');
   } catch (error) {
     console.warn(error);
     return false;
   }
+}
+
+function addManagerSignature(doc, settings = {}, x = 142, y = 238, width = 38, height = 12) {
+  return addUploadedImage(doc, settings.managerSignatureDataUrl, x, y, width, height, 'df7-manager-signature');
+}
+
+function addCompanyStamp(doc, settings = {}, x = 174, y = 232, size = 20) {
+  return addUploadedImage(doc, settings.companyStampDataUrl, x, y, size, size, 'df7-company-stamp');
 }
 
 const writeWrapped = (doc, text, x, y, width, lineHeight = 4.5) => {
@@ -133,7 +157,7 @@ export async function createBusinessPdf(kind, record, settings) {
   doc.setFillColor(17, 45, 78);
   doc.rect(0, 39, 210, 3, 'F');
 
-  const logoAdded = await addCompanyLogo(doc);
+  const logoAdded = await addCompanyLogo(doc, settings);
   if (!logoAdded) {
     doc.setTextColor(17, 45, 78);
     doc.setFontSize(22);
@@ -320,9 +344,9 @@ export async function createBusinessPdf(kind, record, settings) {
     notesY += 7 + bankLines.length * 4.2;
   }
 
-  if (paid) await addPaidStamp(doc, record, notesStartY + 2);
+  if (paid) await addPaidStamp(doc, record, notesStartY + 2, {}, settings);
 
-  if (settings.authorizedSignatory) {
+  if (settings.authorizedSignatory || settings.managerSignatureDataUrl || settings.companyStampDataUrl) {
     let signatureY = Math.max(notesY + 5, paid ? notesStartY + 46 : notesY + 5);
     if (signatureY > 248) {
       doc.addPage();
@@ -331,6 +355,8 @@ export async function createBusinessPdf(kind, record, settings) {
     doc.setTextColor(45, 51, 62);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
+    addManagerSignature(doc, settings, 142, signatureY - 12, 34, 10);
+    addCompanyStamp(doc, settings, 176, signatureY - 15, 17);
     doc.text('Authorized by:', 142, signatureY);
     doc.setFont('helvetica', 'bold');
     doc.text(settings.authorizedSignatory, 142, signatureY + 6);
@@ -373,7 +399,7 @@ export async function createSalarySlipPdf(record, settings) {
   doc.rect(0, 0, 210, 42, 'F');
   doc.setFillColor(17, 45, 78);
   doc.rect(0, 39, 210, 3, 'F');
-  await addCompanyLogo(doc);
+  await addCompanyLogo(doc, settings);
 
   doc.setTextColor(17, 45, 78);
   doc.setFont('helvetica', 'bold');
@@ -502,7 +528,7 @@ export async function createSalarySlipPdf(record, settings) {
   }
 
   // Reserve a dedicated lower-right area for the stamp so it never covers the net salary.
-  if (paid) await addPaidStamp(doc, record, Math.min(216, Math.max(198, notesY + 3)), { x: 163, size: 28, alias: 'df7-salary-paid-stamp' });
+  if (paid) await addPaidStamp(doc, record, Math.min(216, Math.max(198, notesY + 3)), { x: 163, size: 28, alias: 'df7-salary-paid-stamp' }, settings);
 
   const signatureY = 253;
   doc.setTextColor(45, 51, 62);
@@ -510,6 +536,8 @@ export async function createSalarySlipPdf(record, settings) {
   doc.setFontSize(8);
   doc.line(14, signatureY, 74, signatureY);
   doc.line(136, signatureY, 196, signatureY);
+  addManagerSignature(doc, settings, 136, signatureY - 15, 35, 10);
+  addCompanyStamp(doc, settings, 175, signatureY - 18, 18);
   doc.text(record.employeeAcknowledgement || 'Employee acknowledgement', 14, signatureY + 5);
   doc.text(record.managerApproval || 'Manager approval / authorized signature', 136, signatureY + 5);
   if (settings.authorizedSignatory) {
@@ -529,7 +557,7 @@ const attendanceHeader = async (doc, title, employee, month, settings) => {
   doc.rect(0, 0, 210, 42, 'F');
   doc.setFillColor(17, 45, 78);
   doc.rect(0, 39, 210, 3, 'F');
-  await addCompanyLogo(doc);
+  await addCompanyLogo(doc, settings);
   doc.setTextColor(17, 45, 78);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
@@ -651,6 +679,8 @@ export async function createAttendanceSlipPdf({ employee, month, records = [], s
   doc.line(14, signatureY, 78, signatureY);
   doc.line(132, signatureY, 196, signatureY);
   doc.setFontSize(8);
+  addManagerSignature(doc, settings, 132, signatureY - 15, 38, 10);
+  addCompanyStamp(doc, settings, 176, signatureY - 18, 18);
   doc.text('Employee acknowledgement', 14, signatureY + 5);
   doc.text('Manager / authorized signature', 132, signatureY + 5);
   doc.setFontSize(7.5);

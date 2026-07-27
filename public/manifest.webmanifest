@@ -1,5 +1,5 @@
 {
-  "name": "DF7 Business v2.1.7 Enterprise",
+  "name": "DF7 Business v2.1.8 Enterprise",
   "short_name": "DF7 Business",
   "start_url": "/",
   "scope": "/",
@@ -14,5 +14,5 @@
       "purpose": "any maskable"
     }
   ],
-  "description": "DF7 ERP with corrected 24-hour attendance, monthly attendance documents, editable salary slips, and slip locking."
+  "description": "Mobile-first DF7 ERP with themes, document branding, Google Drive backup and restore."
 }

@@ -28,6 +28,8 @@ import { useAuth } from './hooks/useAuth';
 import { useLiveCollection } from './hooks/useLiveCollection';
 import { useSettings } from './hooks/useSettings';
 import { useAttendanceSettings } from './hooks/useAttendanceSettings';
+import { useCompanyAssets } from './hooks/useCompanyAssets';
+import { normalizeTheme } from './config/themes';
 import { disconnectDrive, isDriveConnected, requestDriveAccess } from './services/drive';
 
 export default function App() {
@@ -35,6 +37,7 @@ export default function App() {
   const authenticated = Boolean(user);
   const settings = useSettings(authenticated);
   const attendanceSettings = useAttendanceSettings(authenticated);
+  const companyAssets = useCompanyAssets(authenticated);
   const invoices = useLiveCollection('invoices', 'createdAt', authenticated && canAccessPage(role, 'invoices'));
   const quotes = useLiveCollection('quotes', 'createdAt', authenticated && canAccessPage(role, 'quotes'));
   const products = useLiveCollection('products', 'createdAt', authenticated && canAccessPage(role, 'products'));
@@ -59,7 +62,8 @@ export default function App() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [payrollEmployee, setPayrollEmployee] = useState(null);
   const [finalSettlementEmployee, setFinalSettlementEmployee] = useState(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem('df7-theme') || 'dark');
+  const [theme, setThemeState] = useState(() => normalizeTheme(localStorage.getItem('df7-theme') || 'dark'));
+  const setTheme = (nextTheme) => setThemeState(normalizeTheme(nextTheme));
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -105,10 +109,11 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.7…</p></div>;
-  if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} theme={theme} toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')} />;
+  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.8…</p></div>;
+  if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} />;
 
-  const common = { settings, notify };
+  const documentSettings = { ...settings, ...companyAssets };
+  const common = { settings: documentSettings, notify };
   const hub = (eyebrow, title, description, items) => <ModuleHub eyebrow={eyebrow} title={title} description={description} items={items} onOpen={setPage} />;
 
   const renderPage = () => {
@@ -148,13 +153,21 @@ export default function App() {
       case 'products': return <Products products={products.items} {...common} />;
       case 'suppliers': return hub('INVENTORY & ASSETS', 'Suppliers', 'Supplier and purchase-history workspace.', [{ title: 'Supplier directory', icon: '◎', description: 'Supplier contacts, purchase history and agreements.', features: ['Supplier details', 'Purchase records', 'Notes'], ready: false }]);
       case 'assets': return hub('INVENTORY & ASSETS', 'Company Assets', 'Track office equipment, uniforms, vehicles and assignments.', [{ title: 'Asset register', icon: '□', description: 'Company asset ownership and employee assignment.', features: ['Asset number', 'Condition', 'Assigned employee', 'Maintenance'], ready: false }]);
-      case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} attendance={attendance.items} finalSettlements={finalSettlements.items} products={products.items} settings={settings} />;
+      case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} attendance={attendance.items} finalSettlements={finalSettlements.items} products={products.items} settings={documentSettings} />;
       case 'cloud': return <CloudDocuments driveConnected={driveConnected || isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} counts={{ invoices: invoices.items.length, quotes: quotes.items.length, payroll: payroll.items.length, contracts: billingContracts.items.length }} />;
       case 'notifications': return <Notifications invoices={invoices.items} products={products.items} payroll={payroll.items} budgets={budgets.items} billingContracts={billingContracts.items} />;
-      case 'settings': return <Settings {...common} />;
+      case 'settings': return <Settings
+        settings={settings}
+        companyAssets={companyAssets}
+        notify={notify}
+        theme={theme}
+        setTheme={setTheme}
+        driveConnected={driveConnected || isDriveConnected()}
+        markDriveConnected={setDriveConnected}
+      />;
       case 'activity': return <ActivityLogs logs={activityLogs.items} />;
       case 'users': return <UserManagement users={users.items} notify={notify} />;
-      default: return canAccessPage(role, 'dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={settings} role={role} onNavigate={setPage} /> : <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} />;
+      default: return canAccessPage(role, 'dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={documentSettings} role={role} onNavigate={setPage} /> : <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} />;
     }
   };
 
@@ -162,7 +175,7 @@ export default function App() {
   const dataError = sources.find((source) => source.error)?.error;
 
   return <>
-    <AppShell page={page} setPage={setPage} user={user} role={role} requestLogout={() => setShowLogoutConfirm(true)} driveConnected={driveConnected || isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} businessName={settings.businessName} theme={theme} toggleTheme={() => setTheme((current) => current === 'dark' ? 'light' : 'dark')}>
+    <AppShell page={page} setPage={setPage} user={user} role={role} requestLogout={() => setShowLogoutConfirm(true)} driveConnected={driveConnected || isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} businessName={settings.businessName} companyLogo={companyAssets.companyLogoDataUrl} theme={theme} setTheme={setTheme}>
       {dataError && <div className="alert alert-error">{dataError}</div>}
       {renderPage()}
     </AppShell>

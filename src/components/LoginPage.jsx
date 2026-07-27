@@ -7,8 +7,6 @@ export default function LoginPage({
   registerEmail,
   error,
   loading,
-  theme,
-  toggleTheme,
 }) {
   const [mode, setMode] = useState('google');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -27,16 +25,11 @@ export default function LoginPage({
       <div className="login-orb orb-one" />
       <div className="login-orb orb-two" />
       <section className="login-card enterprise-login-card">
-        <button type="button" className="theme-toggle login-theme-toggle" onClick={toggleTheme}>
-          <span>{theme === 'dark' ? '☀' : '☾'}</span>
-          {theme === 'dark' ? 'Light' : 'Dark'}
-        </button>
-
-        <div className="login-logo-wrap">
+<div className="login-logo-wrap">
           <img className="login-company-logo" src={`${import.meta.env.BASE_URL}images/DF7_Logo.png`} alt="DF7" />
         </div>
 
-        <p className="eyebrow">DF7 BUSINESS v2.1.7 ENTERPRISE</p>
+        <p className="eyebrow">DF7 BUSINESS v2.1.8 ENTERPRISE</p>
         <h1>One workspace for every department.</h1>
         <p className="login-copy">Sales, customers, employees, payroll, finance, inventory, reports and cloud documents.</p>
 

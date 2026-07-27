@@ -189,6 +189,11 @@ service cloud.firestore {
       allow write: if isOwner();
     }
 
+    match /companyAssets/{id} {
+      allow read: if hasAccess();
+      allow create, update, delete: if isOwner();
+    }
+
     match /activityLogs/{id} {
       allow create: if hasAccess();
       allow read, delete: if isOwner();
