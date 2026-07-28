@@ -8,37 +8,186 @@ export const ROLE_LABELS = {
 
 export const normalizeRole = (role) => {
   if (role === 'administrator' || role === 'manager' || role === 'user') return role;
-  // Legacy Accountant, HR Officer and Staff records are intentionally reduced
-  // to the safer User permission set until the administrator edits them.
   return 'user';
 };
 
-export const PAGE_PERMISSIONS = {
+export const MANAGER_FULL_PERMISSIONS = [
+  'dashboard',
+  'quotes',
+  'invoices',
+  'billing',
+  'payments',
+  'customers',
+  'contracts',
+  'statements',
+  'employees',
+  'hr-records',
+  'payroll',
+  'attendance',
+  'attendance-settings',
+  'finance',
+  'expenses',
+  'budget',
+  'tax',
+  'products',
+  'suppliers',
+  'assets',
+  'reports',
+  'cloud',
+  'notifications',
+  'preferences',
+];
+
+export const USER_DEFAULT_PERMISSIONS = [
+  'quotes',
+  'invoices',
+  'customers',
+  'products',
+  'employees',
+  'attendance',
+  'payroll',
+  'preferences',
+];
+
+export const DEFAULT_ROLE_PERMISSIONS = {
   administrator: ['*'],
-  manager: [
-    'dashboard', 'quotes', 'invoices', 'billing', 'payments',
-    'customers', 'contracts', 'statements',
-    'employees', 'hr-records', 'payroll', 'attendance',
-    'finance', 'expenses', 'budget', 'tax',
-    'products', 'suppliers', 'assets',
-    'reports', 'cloud', 'notifications',
-  ],
-  user: ['quotes', 'invoices', 'customers', 'products', 'employees', 'attendance', 'payroll'],
+  manager: MANAGER_FULL_PERMISSIONS,
+  user: USER_DEFAULT_PERMISSIONS,
 };
 
-export const canAccessPage = (role, page) => {
-  const allowed = PAGE_PERMISSIONS[normalizeRole(role)] || [];
+export const PERMISSION_GROUPS = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    description: 'Business overview and operational summaries.',
+    pages: [['dashboard', 'Dashboard']],
+  },
+  {
+    id: 'sales',
+    label: 'Sales & Billing',
+    description: 'Quotations, invoices, recurring billing and payments.',
+    pages: [
+      ['quotes', 'Quotations'],
+      ['invoices', 'Invoices'],
+      ['billing', 'Recurring Billing'],
+      ['payments', 'Payments'],
+    ],
+  },
+  {
+    id: 'crm',
+    label: 'CRM',
+    description: 'Customers, contracts and statements.',
+    pages: [
+      ['customers', 'Customers'],
+      ['contracts', 'Contracts'],
+      ['statements', 'Statements'],
+    ],
+  },
+  {
+    id: 'employees',
+    label: 'Employee Management',
+    description: 'Employee profiles and HR history.',
+    pages: [
+      ['employees', 'Employees'],
+      ['hr-records', 'HR Records'],
+    ],
+  },
+  {
+    id: 'payroll',
+    label: 'Payroll & Attendance',
+    description: 'Attendance, shifts, payroll and salary slips.',
+    pages: [
+      ['payroll', 'Payroll'],
+      ['attendance', 'Attendance'],
+      ['attendance-settings', 'Attendance Settings'],
+    ],
+  },
+  {
+    id: 'finance',
+    label: 'Financial Management',
+    description: 'Finance overview, expenses, budgets and tax reports.',
+    pages: [
+      ['finance', 'Finance Overview'],
+      ['expenses', 'Expenses'],
+      ['budget', 'Budget'],
+      ['tax', 'GST & Tax'],
+    ],
+  },
+  {
+    id: 'inventory',
+    label: 'Inventory & Assets',
+    description: 'Inventory, suppliers and company assets.',
+    pages: [
+      ['products', 'Inventory'],
+      ['suppliers', 'Suppliers'],
+      ['assets', 'Company Assets'],
+    ],
+  },
+  {
+    id: 'insights',
+    label: 'Reports & Cloud',
+    description: 'Reports, documents and operational notifications.',
+    pages: [
+      ['reports', 'Reports & Analytics'],
+      ['cloud', 'Cloud & Documents'],
+      ['notifications', 'Notifications'],
+    ],
+  },
+];
+
+export const getEffectivePermissions = (
+  role,
+  permissions = [],
+  customPermissions = false,
+) => {
+  const normalized = normalizeRole(role);
+  if (normalized === 'administrator') return ['*'];
+
+  const defaults = DEFAULT_ROLE_PERMISSIONS[normalized] || [];
+  const selected = customPermissions && Array.isArray(permissions)
+    ? permissions.filter(Boolean)
+    : defaults;
+
+  return [...new Set([...selected, 'preferences'])];
+};
+
+export const canAccessPage = (
+  role,
+  page,
+  permissions = [],
+  customPermissions = false,
+) => {
+  const allowed = getEffectivePermissions(role, permissions, customPermissions);
   return allowed.includes('*') || allowed.includes(page);
 };
 
-export const getDefaultPage = (role) => (
-  normalizeRole(role) === 'user' ? 'invoices' : 'dashboard'
-);
+export const getDefaultPage = (
+  role,
+  permissions = [],
+  customPermissions = false,
+) => {
+  const allowed = getEffectivePermissions(role, permissions, customPermissions);
+  if (allowed.includes('*') || allowed.includes('dashboard')) return 'dashboard';
+
+  return [
+    'invoices',
+    'quotes',
+    'attendance',
+    'payroll',
+    'customers',
+    'products',
+    'employees',
+    'reports',
+    'preferences',
+  ].find((page) => allowed.includes(page)) || 'preferences';
+};
 
 export const ERP_NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '▦', page: 'dashboard' },
   {
-    id: 'sales', label: 'Sales & Billing', icon: '▤',
+    id: 'sales',
+    label: 'Sales & Billing',
+    icon: '▤',
     children: [
       ['quotes', 'Quotations'],
       ['invoices', 'Invoices'],
@@ -47,7 +196,9 @@ export const ERP_NAV = [
     ],
   },
   {
-    id: 'crm', label: 'CRM', icon: '◎',
+    id: 'crm',
+    label: 'CRM',
+    icon: '◎',
     children: [
       ['customers', 'Customers'],
       ['contracts', 'Contracts'],
@@ -55,15 +206,28 @@ export const ERP_NAV = [
     ],
   },
   {
-    id: 'hr', label: 'Employee Management', icon: '♙',
-    children: [['employees', 'Employees'], ['hr-records', 'HR Records']],
+    id: 'hr',
+    label: 'Employee Management',
+    icon: '♙',
+    children: [
+      ['employees', 'Employees'],
+      ['hr-records', 'HR Records'],
+    ],
   },
   {
-    id: 'payroll-group', label: 'Payroll & Attendance', icon: '▣',
-    children: [['payroll', 'Payroll'], ['attendance', 'Attendance'], ['attendance-settings', 'Attendance Settings']],
+    id: 'payroll-group',
+    label: 'Payroll & Attendance',
+    icon: '▣',
+    children: [
+      ['payroll', 'Payroll'],
+      ['attendance', 'Attendance'],
+      ['attendance-settings', 'Attendance Settings'],
+    ],
   },
   {
-    id: 'finance-group', label: 'Financial Management', icon: '◈',
+    id: 'finance-group',
+    label: 'Financial Management',
+    icon: '◈',
     children: [
       ['finance', 'Finance Overview'],
       ['expenses', 'Expenses'],
@@ -72,19 +236,33 @@ export const ERP_NAV = [
     ],
   },
   {
-    id: 'inventory-group', label: 'Inventory & Assets', icon: '□',
-    children: [['products', 'Inventory'], ['suppliers', 'Suppliers'], ['assets', 'Company Assets']],
+    id: 'inventory-group',
+    label: 'Inventory & Assets',
+    icon: '□',
+    children: [
+      ['products', 'Inventory'],
+      ['suppliers', 'Suppliers'],
+      ['assets', 'Company Assets'],
+    ],
   },
   { id: 'reports-group', label: 'Reports & Analytics', icon: '⌁', page: 'reports' },
   { id: 'cloud-group', label: 'Cloud & Documents', icon: '☁', page: 'cloud' },
   { id: 'notifications-group', label: 'Notifications', icon: '●', page: 'notifications' },
+  { id: 'preferences-group', label: 'Settings', icon: '⚙', page: 'preferences' },
   {
-    id: 'admin-group', label: 'Administration', icon: '⚙',
-    children: [['settings', 'Company & System'], ['activity', 'Activity Logs']],
+    id: 'admin-group',
+    label: 'Administration',
+    icon: '♜',
+    children: [
+      ['settings', 'Company & System'],
+      ['activity', 'Activity Logs'],
+    ],
   },
-  { id: 'users-group', label: 'User Management', icon: '♚', page: 'users' },
+  { id: 'users-group', label: 'Access Control', icon: '♚', page: 'users' },
 ];
 
 export const PAGE_TITLES = Object.fromEntries(
-  ERP_NAV.flatMap((group) => (group.page ? [[group.page, group.label]] : group.children || [])),
+  ERP_NAV.flatMap((group) => (
+    group.page ? [[group.page, group.label]] : group.children || []
+  )),
 );

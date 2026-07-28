@@ -7,33 +7,21 @@ import {
   signOut,
   updateProfile,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, OWNER_EMAIL } from '../config/firebase';
 import { normalizeRole } from '../config/erp';
 
 const emailId = (email = '') => email.trim().toLowerCase();
 
-async function resolveAccess(user) {
-  const email = emailId(user?.email);
-  if (!email) return null;
-
-  if (email === OWNER_EMAIL) {
-    return {
-      id: email,
-      email,
-      displayName: user.displayName || 'DF7 Administrator',
-      role: 'administrator',
-      active: true,
-      owner: true,
-    };
-  }
-
-  const snapshot = await getDoc(doc(db, 'userAccess', email));
-  if (!snapshot.exists()) return null;
-  const access = { id: snapshot.id, ...snapshot.data() };
-  if (access.active === false) return null;
-  return { ...access, role: normalizeRole(access.role) };
-}
+const normalizedAccess = (id, data = {}) => ({
+  id,
+  ...data,
+  email: emailId(data.email || id),
+  role: normalizeRole(data.role),
+  active: data.active !== false,
+  customPermissions: Boolean(data.customPermissions),
+  permissions: Array.isArray(data.permissions) ? data.permissions : [],
+});
 
 export function useAuth() {
   const [user, setUser] = useState(null);
@@ -41,35 +29,79 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => onAuthStateChanged(auth, async (nextUser) => {
-    setLoading(true);
-    try {
+  useEffect(() => {
+    let stopAccess = () => {};
+
+    const stopAuth = onAuthStateChanged(auth, (nextUser) => {
+      stopAccess();
+      stopAccess = () => {};
+      setLoading(true);
+
       if (!nextUser) {
         setUser(null);
         setAccess(null);
+        setLoading(false);
         return;
       }
 
-      const nextAccess = await resolveAccess(nextUser);
-      if (!nextAccess) {
-        await signOut(auth);
-        setError('This account has not been authorized by the DF7 administrator.');
+      const email = emailId(nextUser.email);
+      if (!email) {
+        setError('The signed-in account does not contain an email address.');
         setUser(null);
         setAccess(null);
+        setLoading(false);
         return;
       }
 
-      setUser(nextUser);
-      setAccess(nextAccess);
-      setError('');
-    } catch (reason) {
-      setError(reason?.message || 'Could not verify account access.');
-      setUser(null);
-      setAccess(null);
-    } finally {
-      setLoading(false);
-    }
-  }), []);
+      if (email === OWNER_EMAIL) {
+        setUser(nextUser);
+        setAccess({
+          id: email,
+          email,
+          displayName: nextUser.displayName || 'DF7 Administrator',
+          role: 'administrator',
+          active: true,
+          owner: true,
+          customPermissions: false,
+          permissions: ['*'],
+        });
+        setError('');
+        setLoading(false);
+        return;
+      }
+
+      stopAccess = onSnapshot(
+        doc(db, 'userAccess', email),
+        async (snapshot) => {
+          if (!snapshot.exists() || snapshot.data().active === false) {
+            await signOut(auth);
+            setError('This account has not been authorized by the DF7 administrator.');
+            setUser(null);
+            setAccess(null);
+            setLoading(false);
+            return;
+          }
+
+          setUser(nextUser);
+          setAccess(normalizedAccess(snapshot.id, snapshot.data()));
+          setError('');
+          setLoading(false);
+        },
+        async (reason) => {
+          await signOut(auth);
+          setError(reason?.message || 'Could not verify account access.');
+          setUser(null);
+          setAccess(null);
+          setLoading(false);
+        },
+      );
+    });
+
+    return () => {
+      stopAccess();
+      stopAuth();
+    };
+  }, []);
 
   const loginGoogle = async () => {
     setError('');
@@ -94,8 +126,11 @@ export function useAuth() {
   const registerEmail = async (email, password, displayName) => {
     setError('');
     try {
-      const normalized = emailId(email);
-      const credential = await createUserWithEmailAndPassword(auth, normalized, password);
+      const credential = await createUserWithEmailAndPassword(
+        auth,
+        emailId(email),
+        password,
+      );
       if (displayName.trim()) {
         await updateProfile(credential.user, { displayName: displayName.trim() });
       }

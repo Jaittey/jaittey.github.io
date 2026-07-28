@@ -1,5 +1,11 @@
 export const THEMES = [
   {
+    id: 'royal',
+    name: 'Royal',
+    description: 'Deep navy, refined gold and cool blue details inspired by the DF7 brand.',
+    preview: ['#070d19', '#101a2c', '#d8b85e'],
+  },
+  {
     id: 'dark',
     name: 'Dark',
     description: 'Deep charcoal with emerald accents.',
@@ -24,12 +30,6 @@ export const THEMES = [
     preview: ['#07130f', '#10251d', '#d7b55a'],
   },
   {
-    id: 'royal',
-    name: 'Royal',
-    description: 'Modern indigo with violet highlights.',
-    preview: ['#0c0b1d', '#191633', '#9e8cff'],
-  },
-  {
     id: 'sunset',
     name: 'Sunset',
     description: 'Warm graphite with coral and amber.',
@@ -40,5 +40,5 @@ export const THEMES = [
 export const THEME_IDS = THEMES.map((theme) => theme.id);
 
 export const normalizeTheme = (value) => (
-  THEME_IDS.includes(value) ? value : 'dark'
+  THEME_IDS.includes(value) ? value : 'royal'
 );

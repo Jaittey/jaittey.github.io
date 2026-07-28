@@ -11,6 +11,7 @@ import Products from './pages/Products';
 import Expenses from './pages/Expenses';
 import Customers from './pages/Customers';
 import Settings from './pages/Settings';
+import UserPreferences from './pages/UserPreferences';
 import Billing from './pages/Billing';
 import Employees from './pages/Employees';
 import Payroll from './pages/Payroll';
@@ -33,25 +34,34 @@ import { normalizeTheme } from './config/themes';
 import { disconnectDrive, isDriveConnected, requestDriveAccess } from './services/drive';
 
 export default function App() {
-  const { user, role, loading, error, loginGoogle, loginEmail, registerEmail, logout } = useAuth();
+  const { user, access, role, loading, error, loginGoogle, loginEmail, registerEmail, logout } = useAuth();
   const authenticated = Boolean(user);
   const settings = useSettings(authenticated);
   const attendanceSettings = useAttendanceSettings(authenticated);
   const companyAssets = useCompanyAssets(authenticated);
-  const invoices = useLiveCollection('invoices', 'createdAt', authenticated && canAccessPage(role, 'invoices'));
-  const quotes = useLiveCollection('quotes', 'createdAt', authenticated && canAccessPage(role, 'quotes'));
-  const products = useLiveCollection('products', 'createdAt', authenticated && canAccessPage(role, 'products'));
-  const expenses = useLiveCollection('expenses', 'createdAt', authenticated && canAccessPage(role, 'expenses'));
-  const customers = useLiveCollection('customers', 'createdAt', authenticated && canAccessPage(role, 'customers'));
-  const billingContracts = useLiveCollection('billingContracts', 'createdAt', authenticated && canAccessPage(role, 'billing'));
-  const employees = useLiveCollection('employees', 'createdAt', authenticated && canAccessPage(role, 'employees'));
-  const payroll = useLiveCollection('payroll', 'createdAt', authenticated && canAccessPage(role, 'payroll'));
-  const salarySlips = useLiveCollection('salarySlips', 'createdAt', authenticated && canAccessPage(role, 'payroll'));
-  const attendance = useLiveCollection('attendance', 'date', authenticated && canAccessPage(role, 'attendance'));
-  const payrollPeriods = useLiveCollection('payrollPeriods', 'month', authenticated && canAccessPage(role, 'payroll'));
-  const finalSettlements = useLiveCollection('finalSettlements', 'lastWorkingDate', authenticated && canAccessPage(role, 'payroll'));
-  const budgets = useLiveCollection('budgets', 'createdAt', authenticated && canAccessPage(role, 'budget'));
-  const payments = useLiveCollection('payments', 'createdAt', authenticated && canAccessPage(role, 'payments'));
+  const accessPermissions = access?.permissions || [];
+  const customPermissions = Boolean(access?.customPermissions);
+  const can = (pageId) => canAccessPage(
+    role,
+    pageId,
+    accessPermissions,
+    customPermissions,
+  );
+
+  const invoices = useLiveCollection('invoices', 'createdAt', authenticated && can('invoices'));
+  const quotes = useLiveCollection('quotes', 'createdAt', authenticated && can('quotes'));
+  const products = useLiveCollection('products', 'createdAt', authenticated && can('products'));
+  const expenses = useLiveCollection('expenses', 'createdAt', authenticated && can('expenses'));
+  const customers = useLiveCollection('customers', 'createdAt', authenticated && can('customers'));
+  const billingContracts = useLiveCollection('billingContracts', 'createdAt', authenticated && can('billing'));
+  const employees = useLiveCollection('employees', 'createdAt', authenticated && can('employees'));
+  const payroll = useLiveCollection('payroll', 'createdAt', authenticated && can('payroll'));
+  const salarySlips = useLiveCollection('salarySlips', 'createdAt', authenticated && can('payroll'));
+  const attendance = useLiveCollection('attendance', 'date', authenticated && can('attendance'));
+  const payrollPeriods = useLiveCollection('payrollPeriods', 'month', authenticated && can('payroll'));
+  const finalSettlements = useLiveCollection('finalSettlements', 'lastWorkingDate', authenticated && can('payroll'));
+  const budgets = useLiveCollection('budgets', 'createdAt', authenticated && can('budget'));
+  const payments = useLiveCollection('payments', 'createdAt', authenticated && can('payments'));
   const users = useLiveCollection('userAccess', 'updatedAt', authenticated && role === 'administrator');
   const activityLogs = useLiveCollection('activityLogs', 'createdAt', authenticated && role === 'administrator');
 
@@ -62,7 +72,7 @@ export default function App() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [payrollEmployee, setPayrollEmployee] = useState(null);
   const [finalSettlementEmployee, setFinalSettlementEmployee] = useState(null);
-  const [theme, setThemeState] = useState(() => normalizeTheme(localStorage.getItem('df7-theme') || 'dark'));
+  const [theme, setThemeState] = useState(() => normalizeTheme(localStorage.getItem('df7-theme') || 'royal'));
   const setTheme = (nextTheme) => setThemeState(normalizeTheme(nextTheme));
 
   useEffect(() => {
@@ -77,8 +87,10 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => {
-    if (authenticated && role && !canAccessPage(role, page)) setPage(getDefaultPage(role));
-  }, [authenticated, role, page]);
+    if (authenticated && role && !can(page)) {
+      setPage(getDefaultPage(role, accessPermissions, customPermissions));
+    }
+  }, [authenticated, role, page, accessPermissions.join('|'), customPermissions]);
 
   const notify = (message, type = 'success') => setToast({ message, type });
 
@@ -109,7 +121,7 @@ export default function App() {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.8…</p></div>;
+  if (loading) return <div className="loading-screen"><div className="loader" /><p>Loading DF7 Enterprise v2.1.9…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={error} loading={loading} />;
 
   const documentSettings = { ...settings, ...companyAssets };
@@ -156,6 +168,7 @@ export default function App() {
       case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} attendance={attendance.items} finalSettlements={finalSettlements.items} products={products.items} settings={documentSettings} />;
       case 'cloud': return <CloudDocuments driveConnected={driveConnected || isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} counts={{ invoices: invoices.items.length, quotes: quotes.items.length, payroll: payroll.items.length, contracts: billingContracts.items.length }} />;
       case 'notifications': return <Notifications invoices={invoices.items} products={products.items} payroll={payroll.items} budgets={budgets.items} billingContracts={billingContracts.items} />;
+      case 'preferences': return <UserPreferences theme={theme} setTheme={setTheme} />;
       case 'settings': return <Settings
         settings={settings}
         companyAssets={companyAssets}
@@ -167,7 +180,7 @@ export default function App() {
       />;
       case 'activity': return <ActivityLogs logs={activityLogs.items} />;
       case 'users': return <UserManagement users={users.items} notify={notify} />;
-      default: return canAccessPage(role, 'dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={documentSettings} role={role} onNavigate={setPage} /> : <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} />;
+      default: return can('dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={documentSettings} role={role} onNavigate={setPage} /> : <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} />;
     }
   };
 
@@ -175,7 +188,20 @@ export default function App() {
   const dataError = sources.find((source) => source.error)?.error;
 
   return <>
-    <AppShell page={page} setPage={setPage} user={user} role={role} requestLogout={() => setShowLogoutConfirm(true)} driveConnected={driveConnected || isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} businessName={settings.businessName} companyLogo={companyAssets.companyLogoDataUrl} theme={theme} setTheme={setTheme}>
+    <AppShell
+      page={page}
+      setPage={setPage}
+      user={user}
+      role={role}
+      permissions={accessPermissions}
+      customPermissions={customPermissions}
+      requestLogout={() => setShowLogoutConfirm(true)}
+      driveConnected={driveConnected || isDriveConnected()}
+      connectDrive={connectDrive}
+      disconnectDrive={disconnect}
+      businessName={settings.businessName}
+      companyLogo={companyAssets.companyLogoDataUrl}
+    >
       {dataError && <div className="alert alert-error">{dataError}</div>}
       {renderPage()}
     </AppShell>

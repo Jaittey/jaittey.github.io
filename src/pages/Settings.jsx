@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { OWNER_EMAIL } from '../config/firebase';
-import { THEMES } from '../config/themes';
 import { compressImageFile } from '../utils/images';
 import {
   createApplicationBackup,
@@ -64,8 +63,6 @@ export default function Settings({
   settings,
   companyAssets,
   notify,
-  theme,
-  setTheme,
   driveConnected,
   markDriveConnected,
 }) {
@@ -200,18 +197,14 @@ export default function Settings({
     }
   };
 
-  const selectedTheme = useMemo(
-    () => THEMES.find((item) => item.id === theme) || THEMES[0],
-    [theme],
-  );
 
   return (
     <div className="administration-page">
       <section className="administration-hero panel">
         <div>
           <p className="eyebrow">ADMINISTRATION</p>
-          <h2>Company, appearance and data control</h2>
-          <p>Manage DF7 branding, document assets, application themes, Google Drive backups and the protected full reset.</p>
+          <h2>Company, branding and data control</h2>
+          <p>Manage DF7 company information, document branding, Google Drive backups and the protected full reset.</p>
         </div>
         <span className="admin-owner-chip">Administrator · {OWNER_EMAIL}</span>
       </section>
@@ -220,7 +213,6 @@ export default function Settings({
         {[
           ['company', 'Company & System'],
           ['branding', 'Logo, Stamp & Signature'],
-          ['appearance', 'Themes'],
           ['backup', 'Backup & Restore'],
           ['reset', 'Reset'],
         ].map(([id, label]) => (
@@ -325,39 +317,6 @@ export default function Settings({
         </section>
       )}
 
-      {tab === 'appearance' && (
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">APPEARANCE</p>
-              <h2>Choose an application theme</h2>
-              <p className="page-subtitle">The selected theme is saved on this device. The old Dark/Light toggle buttons have been removed.</p>
-            </div>
-          </div>
-          <div className="theme-card-grid">
-            {THEMES.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                className={`theme-card ${theme === item.id ? 'active' : ''}`}
-                onClick={() => setTheme(item.id)}
-              >
-                <span className="theme-preview">
-                  {item.preview.map((color) => <i key={color} style={{ background: color }} />)}
-                </span>
-                <strong>{item.name}</strong>
-                <small>{item.description}</small>
-                {theme === item.id && <b>Selected</b>}
-              </button>
-            ))}
-          </div>
-          <div className="selected-theme-summary">
-            <span>Current theme</span>
-            <strong>{selectedTheme.name}</strong>
-            <small>{selectedTheme.description}</small>
-          </div>
-        </section>
-      )}
 
       {tab === 'backup' && (
         <section className="backup-layout">

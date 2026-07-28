@@ -1,7 +1,7 @@
 {
-  "name": "df7-business-v2-1-8-admin-themes-backup",
+  "name": "df7-business-v2-1-9-royal-access-control",
   "private": true,
-  "version": "2.1.8",
+  "version": "2.1.9",
   "type": "module",
   "scripts": {
     "dev": "vite",

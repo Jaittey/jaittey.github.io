@@ -1,8 +1,8 @@
-# DF7 Business v2.1.8 Enterprise
+# DF7 Business v2.1.9 Enterprise
 
 This release updates the attendance and payroll workflow while preserving the existing DF7 Business modules and Firebase data.
 
-## v2.1.8 changes
+## v2.1.9 changes
 
 - Correct 24-hour attendance time entry using scheduled and actual check-in/check-out times.
 - Correct overtime and missed-hour calculations, including overnight shifts, off days and approved leave.
@@ -17,3 +17,12 @@ This release updates the attendance and payroll workflow while preserving the ex
 - Administrator override for locked attendance, closed payroll and locked salary slips.
 
 See `V2_1_7_ATTENDANCE_SALARY_SLIP_SETUP.md` for deployment and usage instructions.
+
+
+## v2.1.9
+
+- Royal desktop/mobile interface normalization
+- Top-right profile menu
+- Administrator module-permission control
+- Full operational Manager role
+- Settings and themes for every user

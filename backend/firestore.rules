@@ -18,14 +18,18 @@ service cloud.firestore {
       return /databases/$(database)/documents/userAccess/$(email());
     }
 
+    function accessData() {
+      return get(accessPath()).data;
+    }
+
     function hasAccess() {
       return signedIn()
         && (isOwner()
-          || (exists(accessPath()) && get(accessPath()).data.active == true));
+          || (exists(accessPath()) && accessData().active == true));
     }
 
     function storedRole() {
-      return get(accessPath()).data.role;
+      return accessData().role;
     }
 
     function role() {
@@ -38,16 +42,41 @@ service cloud.firestore {
       return hasAccess() && (isOwner() || role() == "manager");
     }
 
-    function isUser() {
-      return hasAccess() && role() == "user";
-    }
-
     function isDelegatedManager() {
       return hasAccess() && !isOwner() && role() == "manager";
     }
 
-    function operationalAccess() {
-      return isManager() || isUser();
+    function usesCustomPermissions() {
+      return hasAccess()
+        && !isOwner()
+        && ("customPermissions" in accessData())
+        && accessData().customPermissions == true
+        && ("permissions" in accessData());
+    }
+
+    function defaultUserPermission(permission) {
+      return permission in [
+        "quotes",
+        "invoices",
+        "customers",
+        "products",
+        "employees",
+        "attendance",
+        "payroll",
+        "preferences"
+      ];
+    }
+
+    function hasPermission(permission) {
+      return isOwner()
+        || (hasAccess()
+          && (
+            (usesCustomPermissions() && permission in accessData().permissions)
+            || (!usesCustomPermissions() && role() == "manager")
+            || (!usesCustomPermissions()
+              && role() == "user"
+              && defaultUserPermission(permission))
+          ));
     }
 
     function payrollPeriodPath(month) {
@@ -87,101 +116,114 @@ service cloud.firestore {
       allow create, update, delete: if isOwner();
     }
 
-    // Manager and User operational modules.
     match /customers/{id} {
-      allow read, write: if operationalAccess();
+      allow read, write: if hasPermission("customers");
     }
 
     match /products/{id} {
-      allow read, write: if operationalAccess();
+      allow read, write: if hasPermission("products");
     }
 
     match /invoices/{id} {
-      allow read, write: if operationalAccess();
+      allow read, write: if hasPermission("invoices");
     }
 
     match /quotes/{id} {
-      allow read, write: if operationalAccess();
+      allow read, write: if hasPermission("quotes");
     }
 
-    // Employee profiles are visible to both roles, but only Managers may change payroll settings.
     match /employees/{id} {
-      allow read: if operationalAccess();
-      allow create, update, delete: if isManager();
+      allow read: if hasPermission("employees");
+      allow create, update, delete: if isManager() && hasPermission("employees");
     }
 
-    // Daily attendance may be entered by Manager or User only while the payroll month is open.
     match /attendance/{id} {
-      allow read: if operationalAccess();
-      allow create: if operationalAccess()
+      allow read: if hasPermission("attendance");
+      allow create: if hasPermission("attendance")
         && request.resource.data.attendanceMonth is string
         && payrollPeriodOpen(request.resource.data.attendanceMonth);
-      allow update: if operationalAccess()
+      allow update: if hasPermission("attendance")
         && resource.data.attendanceMonth is string
         && request.resource.data.attendanceMonth == resource.data.attendanceMonth
         && payrollPeriodOpen(resource.data.attendanceMonth);
       allow delete: if isManager()
+        && hasPermission("attendance")
         && resource.data.attendanceMonth is string
         && payrollPeriodOpen(resource.data.attendanceMonth);
     }
 
-    // Users can review and print salary information. Managers perform all payroll changes.
     match /payroll/{id} {
-      allow read: if operationalAccess();
+      allow read: if hasPermission("payroll");
       allow create: if isManager()
-        && (request.resource.data.recordType == "FINAL_SETTLEMENT"
-          || (request.resource.data.salaryMonth is string
-            && payrollPeriodOpen(request.resource.data.salaryMonth)));
+        && hasPermission("payroll")
+        && (
+          request.resource.data.recordType == "FINAL_SETTLEMENT"
+          || (
+            request.resource.data.salaryMonth is string
+            && payrollPeriodOpen(request.resource.data.salaryMonth)
+          )
+        );
       allow update: if isManager()
-        && ((resource.data.salaryMonth is string && payrollPeriodOpen(resource.data.salaryMonth))
-          || payrollAdministrativeChange());
+        && hasPermission("payroll")
+        && (
+          (
+            resource.data.salaryMonth is string
+            && payrollPeriodOpen(resource.data.salaryMonth)
+          )
+          || payrollAdministrativeChange()
+        );
       allow delete: if isManager()
+        && hasPermission("payroll")
         && resource.data.salaryMonth is string
         && payrollPeriodOpen(resource.data.salaryMonth);
     }
 
     match /salarySlips/{id} {
-      allow read: if operationalAccess();
-      allow create: if isManager();
-      // A Manager can edit or lock an unlocked slip, but cannot edit or unlock it after locking.
-      // The Administrator bypasses this restriction through the owner rule below.
+      allow read: if hasPermission("payroll");
+      allow create: if isManager() && hasPermission("payroll");
       allow update, delete: if isDelegatedManager()
+        && hasPermission("payroll")
         && (!("locked" in resource.data) || resource.data.locked != true);
     }
 
     match /attendanceDocuments/{id} {
-      allow read, create, update: if operationalAccess();
-      allow delete: if isManager();
+      allow read, create, update: if hasPermission("attendance");
+      allow delete: if isManager() && hasPermission("attendance");
     }
 
     match /payrollPeriods/{month} {
-      allow read: if operationalAccess();
-      allow create, update, delete: if isManager();
+      allow read: if hasPermission("payroll");
+      allow create, update, delete: if isManager() && hasPermission("payroll");
     }
 
     match /finalSettlements/{id} {
-      allow read: if operationalAccess();
-      allow create, update, delete: if isManager();
+      allow read: if hasPermission("payroll");
+      allow create, update, delete: if isManager() && hasPermission("payroll");
     }
 
-    // Manager-only finance and administration modules.
     match /payments/{id} {
-      allow read, write: if isManager();
+      allow read, write: if hasPermission("payments");
     }
 
     match /expenses/{id} {
-      allow read, write: if isManager();
+      allow read, write: if hasPermission("expenses");
     }
 
     match /billingContracts/{id} {
-      allow read, write: if isManager();
+      allow read, write: if hasPermission("billing");
+
       match /generatedPeriods/{periodId} {
-        allow read, write: if isManager();
+        allow read, write: if hasPermission("billing");
       }
     }
 
     match /budgets/{id} {
-      allow read, write: if isManager();
+      allow read, write: if hasPermission("budget");
+    }
+
+    match /settings/attendance {
+      allow read: if hasAccess();
+      allow write: if isManager() && hasPermission("attendance-settings");
     }
 
     match /settings/{id} {
@@ -200,7 +242,6 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // The fixed Administrator account has complete access, including locked and closed records.
     match /{document=**} {
       allow read, write: if isOwner();
     }
