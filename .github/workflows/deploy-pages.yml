@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   workflow_dispatch:
 
 permissions:
@@ -27,11 +26,11 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22
+          package-manager-cache: false
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Small Business
         env:
@@ -43,7 +42,8 @@ jobs:
 
       - name: Verify build output
         run: |
-          echo "Checking dist folder..."
+          echo "Checking build..."
+          ls -la
           ls -la dist
           test -f dist/index.html
 
@@ -64,6 +64,6 @@ jobs:
     needs: build
 
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
