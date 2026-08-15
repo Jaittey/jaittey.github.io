@@ -1,10 +1,10 @@
-# Small Business (SB) v3.2.0 — Supabase Edition
+# Small Business (SB) v3.3.0 — Supabase Edition
 
 Small Business is a multi-company business-management web application for GitHub Pages.
 
 ## Backend
 
-v3.2 removes Firebase from the application backend and uses:
+v3.3 removes Firebase from the application backend and uses:
 
 - Supabase Auth for Google and email/password authentication
 - Supabase Postgres for application data
@@ -36,6 +36,16 @@ Never put a Supabase Secret key or legacy `service_role` key into this frontend 
 
 ## Existing Firebase data
 
-Before replacing a live v3.1 Firebase deployment, create a Google Drive backup from the old app. After v3.2 is deployed, register the business in Supabase and restore that old backup from Company Administration → Backup & Restore.
+Before replacing a live v3.1 Firebase deployment, create a Google Drive backup from the old app. After v3.3 is deployed, register the business in Supabase and restore that old backup from Company Administration → Backup & Restore.
 
 The restore service accepts the previous Firebase tenant-backup format and keeps the new Supabase business ID.
+
+
+## v3.3 Payment & Subscription Update
+- 7-day VIP Platinum trial for new businesses
+- Flexible Super Admin custom offers (days/months/years/lifetime)
+- Subscriber payment form reduced to package/offer + bank + slip upload
+- Only exact duplicate-image and amount checks are performed automatically
+- All slips remain manually approvable by Super Admin
+- Fixed ambiguous `detected_amount` RPC error
+- Fixed profile Realtime channel race

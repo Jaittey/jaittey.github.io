@@ -752,11 +752,40 @@ export async function saveSubscriptionBankAccount(bankId, data = {}) {
   throwIfError(error);
 }
 
-export async function findDuplicateSubscriptionReceipt({ reference = '', fileHash = '', bankId = '' }) {
+
+export async function saveCustomOffer(data = {}, id = null) {
+  const payload = {
+    id: id || data.id || crypto.randomUUID(),
+    name: String(data.name || '').trim(),
+    description: String(data.description || '').trim(),
+    plan_id: String(data.planId || 'PLATINUM').toUpperCase(),
+    price: Number(data.price || 0),
+    currency: String(data.currency || 'MVR').toUpperCase(),
+    duration_type: String(data.durationType || 'MONTHS').toUpperCase(),
+    duration_value: Number(data.durationValue || 0),
+    active: data.active !== false,
+    updated_at: nowIso(),
+  };
+  if (!payload.name) throw new Error('Offer name is required.');
+  if (!['SILVER', 'GOLD', 'PLATINUM'].includes(payload.plan_id)) throw new Error('Choose a valid access package.');
+  if (!['DAYS', 'MONTHS', 'YEARS', 'LIFETIME'].includes(payload.duration_type)) throw new Error('Choose a valid offer duration.');
+  if (payload.duration_type !== 'LIFETIME' && payload.duration_value <= 0) throw new Error('Duration must be greater than 0.');
+  if (payload.price < 0) throw new Error('Offer price cannot be negative.');
+  const { error } = await supabase.from('platform_custom_offers').upsert(payload, { onConflict: 'id' });
+  throwIfError(error, 'Could not save custom offer.');
+  return payload.id;
+}
+
+export async function deleteCustomOffer(id) {
+  const { error } = await supabase.from('platform_custom_offers').delete().eq('id', id);
+  throwIfError(error, 'Could not delete custom offer.');
+}
+
+export async function findDuplicateSubscriptionReceipt({ fileHash = '' }) {
   const { data, error } = await supabase.rpc('sb_find_duplicate_receipt', {
     p_business_id: requireActiveBusinessId(),
-    p_bank_id: bankId,
-    p_reference: String(reference || '').replace(/[^A-Z0-9]/gi, '').toUpperCase(),
+    p_bank_id: '',
+    p_reference: '',
     p_file_hash: fileHash || '',
   });
   throwIfError(error);
@@ -764,51 +793,65 @@ export async function findDuplicateSubscriptionReceipt({ reference = '', fileHas
 }
 
 export async function submitBankTransferSubscriptionRequest({
-  business, plan, planSettings, billingPeriod, bankAccount, receipt,
-  receiptFile, receiptUpload, form, user,
+  business,
+  plan,
+  planSettings,
+  customOffer = null,
+  billingPeriod,
+  bankAccount,
+  receipt,
+  receiptFile,
+  receiptUpload,
+  user,
 }) {
   if (!business?.id) throw new Error('Business is required.');
-  if (!plan?.id) throw new Error('Subscription package is required.');
-  if (!['MONTHLY', 'YEARLY'].includes(billingPeriod)) throw new Error('Choose monthly or yearly billing.');
   const bankId = bankAccount?.bankId || bankAccount?.id;
   if (!['BML', 'MIB'].includes(bankId)) throw new Error('Choose BML or MIB.');
 
-  const amount = billingPeriod === 'YEARLY'
-    ? Number(planSettings?.yearlyPrice || 0)
-    : Number(planSettings?.monthlyPrice || 0);
+  const isOffer = Boolean(customOffer?.id);
+  if (!isOffer && !plan?.id) throw new Error('Subscription package is required.');
+  if (!isOffer && !['MONTHLY', 'YEARLY'].includes(billingPeriod)) throw new Error('Choose monthly or yearly billing.');
+
+  const amount = isOffer
+    ? Number(customOffer.price || 0)
+    : billingPeriod === 'YEARLY'
+      ? Number(planSettings?.yearlyPrice || 0)
+      : Number(planSettings?.monthlyPrice || 0);
+
   if (amount <= 0) throw new Error('The selected subscription price has not been configured.');
+  if (!receiptFile || !receiptUpload?.storagePath) throw new Error('Upload the bank transfer slip first.');
+
+  const selectedPlanId = isOffer ? customOffer.planId : plan.id;
+  const selectedPlanName = isOffer
+    ? `${customOffer.name} · ${customOffer.planId}`
+    : plan.name;
 
   const payload = {
     business_id: business.id,
     business_name: business.name || '',
-    plan_id: plan.id,
-    plan_name: plan.name,
-    billing_period: billingPeriod,
+    plan_id: selectedPlanId,
+    plan_name: selectedPlanName,
+    billing_period: isOffer ? 'CUSTOM' : billingPeriod,
+    offer_id: isOffer ? customOffer.id : null,
+    offer_name: isOffer ? customOffer.name : '',
+    duration_type: isOffer ? customOffer.durationType : '',
+    duration_value: isOffer ? Number(customOffer.durationValue || 0) : 0,
     amount,
-    currency: planSettings?.currency || 'MVR',
+    currency: isOffer ? (customOffer.currency || 'MVR') : (planSettings?.currency || 'MVR'),
     bank_id: bankId,
-    detected_bank_id: receipt.bankId || '',
     bank_name: bankAccount.name || bankAccount.shortName || bankId,
     destination_account_number: bankAccount.accountNumber || '',
     destination_account_name: bankAccount.accountName || '',
-    detected_amount: Number(receipt.amount || 0),
-    detected_reference: receipt.reference || '',
-    normalized_reference: String(receipt.reference || '').replace(/[^A-Z0-9]/gi, '').toUpperCase(),
-    detected_destination_account: receipt.destinationAccount || '',
-    ocr_confidence: Number(receipt.ocrConfidence || 0),
-    ocr_text: receipt.text || '',
-    receipt_file_hash: receipt.fileHash || '',
-    receipt_storage_path: receiptUpload?.storagePath || '',
-    receipt_file_name: receiptFile?.name || '',
-    receipt_file_type: receiptFile?.type || '',
-    receipt_risk_level: receipt.riskLevel || 'REVIEW',
-    receipt_warnings: receipt.warnings || [],
-    auto_reject_reasons: receipt.reasons || [],
-    payer_name: String(form.payerName || user?.displayName || '').trim(),
-    payer_contact: String(form.payerContact || '').trim(),
-    business_registration_number: String(form.businessRegistrationNumber || business.registrationNumber || '').trim(),
-    identity_reference: String(form.identityReference || '').trim(),
-    verification_notes: String(form.verificationNotes || '').trim(),
+    detected_amount: Number(receipt?.amount || 0),
+    ocr_confidence: Number(receipt?.ocrConfidence || 0),
+    ocr_text: receipt?.text || '',
+    receipt_file_hash: receipt?.fileHash || '',
+    receipt_storage_path: receiptUpload.storagePath,
+    receipt_file_name: receiptFile.name || '',
+    receipt_file_type: receiptFile.type || '',
+    receipt_risk_level: receipt?.riskLevel || 'REVIEW',
+    receipt_warnings: receipt?.issues || receipt?.warnings || [],
+    auto_reject_reasons: [],
     requester_id: user?.id || user?.uid || null,
     requester_email: lower(user?.email),
     requester_name: user?.displayName || '',
@@ -816,7 +859,5 @@ export async function submitBankTransferSubscriptionRequest({
 
   const { data, error } = await supabase.rpc('sb_submit_subscription_receipt', { p_payload: payload });
   throwIfError(error, 'Could not submit subscription receipt.');
-
-  const result = typeof data === 'string' ? JSON.parse(data) : data;
-  return result;
+  return typeof data === 'string' ? JSON.parse(data) : data;
 }

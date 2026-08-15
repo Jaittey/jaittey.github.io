@@ -1,10 +1,10 @@
-# Small Business (SB) v3.2.0 — Supabase Database & Storage Setup
+# Small Business (SB) v3.3.0 — Supabase Database & Storage Setup
 
 ## What changed
 
 Small Business no longer uses Firebase Authentication, Firestore or Firebase Storage.
 
-v3.2 uses Supabase for:
+v3.3 uses Supabase for:
 
 - Google and email/password authentication
 - Postgres database
@@ -212,7 +212,7 @@ Keep:
 
 - `.github/workflows/deploy-pages.yml` from the new package
 
-Firebase-specific files are intentionally removed in v3.2.
+Firebase-specific files are intentionally removed in v3.3.
 
 ## Step 9 — Change GitHub Actions secrets
 
@@ -238,7 +238,7 @@ Keep/add this only for the existing Google Drive integration.
 
 The frontend does NOT need a database password, Supabase Secret key, JWT secret or service-role key.
 
-You can leave the old Firebase GitHub secrets temporarily while testing, but v3.2 does not read them. After the Supabase deployment is confirmed, remove the old Firebase secrets to reduce confusion.
+You can leave the old Firebase GitHub secrets temporarily while testing, but v3.3 does not read them. After the Supabase deployment is confirmed, remove the old Firebase secrets to reduce confusion.
 
 ## Step 10 — Commit and deploy
 
@@ -286,11 +286,11 @@ Open:
 
 1. Connect Google Drive.
 2. Refresh backup list.
-3. Select the v3.1 backup created before migration. v3.2 also scans accessible older `SB_Backup_...json` and `DF7_Backup_...json` files, so the backup can still be discovered when the old Firebase version used a different Drive root folder.
+3. Select the v3.1 backup created before migration. v3.3 also scans accessible older `SB_Backup_...json` and `DF7_Backup_...json` files, so the backup can still be discovered when the old Firebase version used a different Drive root folder.
 4. Type the restore confirmation phrase.
 5. Restore.
 
-The v3.2 restore code accepts the previous Firebase tenant backup format and converts serialized Firestore timestamp/date values into ordinary ISO date values before writing them to Supabase.
+The v3.3 restore code accepts the previous Firebase tenant backup format and converts serialized Firestore timestamp/date values into ordinary ISO date values before writing them to Supabase.
 
 The new Supabase business ID is preserved. The old Firebase tenant ID is not allowed to overwrite the Supabase tenant.
 

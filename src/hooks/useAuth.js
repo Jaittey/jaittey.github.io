@@ -57,8 +57,10 @@ export function useAuth() {
   useEffect(() => {
     let profileChannel = null;
     let cancelled = false;
+    let sessionGeneration = 0;
 
     const applySession = async (session) => {
+      const generation = ++sessionGeneration;
       const rawUser = session?.user || null;
 
       if (profileChannel) {
@@ -90,14 +92,16 @@ export function useAuth() {
           return;
         }
 
-        if (!cancelled) {
+        if (!cancelled && generation === sessionGeneration) {
           setUser(normalizeUser(rawUser));
           setError('');
           setLoading(false);
         }
 
+        if (cancelled || generation !== sessionGeneration) return;
+        const uniqueTopic = `sb-platform-profile-${rawUser.id}-${generation}-${Date.now()}`;
         profileChannel = supabase
-          .channel(`sb-platform-profile-${rawUser.id}`)
+          .channel(uniqueTopic)
           .on(
             'postgres_changes',
             {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
-import { DEFAULT_PLAN_SETTINGS, PLAN_DEFINITIONS } from '../config/plans';
+import { DEFAULT_PLAN_SETTINGS, PLAN_DEFINITIONS, formatOfferDuration } from '../config/plans';
 import { DEFAULT_BANK_ACCOUNTS } from '../config/subscriptionBanks';
 import {
   approveSubscriptionRequest,
@@ -10,6 +10,8 @@ import {
   savePaymentMethod,
   savePlatformPlan,
   saveSubscriptionBankAccount,
+  saveCustomOffer,
+  deleteCustomOffer,
   setBusinessSubscriptionStatus,
   setPlatformUserStatus,
 } from '../services/database';
@@ -62,6 +64,7 @@ export default function SuperAdmin({
   plans,
   paymentMethods,
   bankAccounts,
+  customOffers = [],
   notify,
 }) {
   const [tab, setTab] = useState('verification');
@@ -73,6 +76,8 @@ export default function SuperAdmin({
     name: '', type: 'BANK_TRANSFER', instructions: '', accountLabel: '', icon: '▣', active: true,
   });
   const [bankDrafts, setBankDrafts] = useState({});
+  const [offerEditor, setOfferEditor] = useState(null);
+  const [offerForm, setOfferForm] = useState({ name: '', description: '', planId: 'PLATINUM', price: 0, currency: 'MVR', durationType: 'MONTHS', durationValue: 6, active: true });
 
   const subscriptionByBusiness = useMemo(
     () => Object.fromEntries(subscriptions.map((item) => [item.businessId || item.id, item])),
@@ -149,6 +154,36 @@ export default function SuperAdmin({
     }
   };
 
+  const openOffer = (offer = null) => {
+    setOfferForm(offer ? {
+      ...offer,
+      durationValue: Number(offer.durationValue || 0),
+      price: Number(offer.price || 0),
+    } : { name: '', description: '', planId: 'PLATINUM', price: 0, currency: 'MVR', durationType: 'MONTHS', durationValue: 6, active: true });
+    setOfferEditor(offer || {});
+  };
+
+  const saveOffer = async () => {
+    try {
+      await saveCustomOffer(offerForm, offerEditor?.id || null);
+      notify('Custom offer saved.');
+      setOfferEditor(null);
+    } catch (reason) {
+      notify(reason?.message || 'Could not save custom offer.', 'error');
+    }
+  };
+
+  const removeOffer = async (offer) => {
+    if (!window.confirm(`Delete custom offer ${offer.name}?`)) return;
+    try {
+      await deleteCustomOffer(offer.id);
+      notify('Custom offer deleted.');
+    } catch (reason) {
+      notify(reason?.message || 'Could not delete custom offer.', 'error');
+    }
+  };
+
+
   return (
     <div className="super-admin-page">
       <section className="super-admin-hero panel">
@@ -170,6 +205,7 @@ export default function SuperAdmin({
           ['subscribers', 'Subscribers'],
           ['payments', 'Payments'],
           ['plans', 'Packages'],
+          ['offers', 'Custom Offers'],
           ['methods', 'Payment Methods'],
           ['banks', 'Bank Accounts'],
           ['users', 'Platform Users'],
@@ -187,26 +223,24 @@ export default function SuperAdmin({
               <article className="verification-card" key={request.id}>
                 <div><span className="status status-draft">{request.status}</span><small>{fmtDate(request.submittedAt)}</small></div>
                 <h3>{request.businessName}</h3>
-                <strong>{request.planName} · {money(request.amount, request.currency)}</strong>
+                <strong>{request.offerName || request.planName} · {money(request.amount, request.currency)}</strong>
                 <ReceiptPreview storagePath={request.receiptStoragePath} />
                 <dl>
                   <div><dt>Requester</dt><dd>{request.requesterEmail}</dd></div>
                   <div><dt>Billing</dt><dd>{request.billingPeriod || 'MONTHLY'}</dd></div>
-                  <div><dt>Selected bank</dt><dd>{request.bankName || request.bankId || '—'}</dd></div><div><dt>Detected bank</dt><dd>{request.detectedBankId || request.bankId || '—'}</dd></div>
-                  <div><dt>Detected amount</dt><dd>{money(request.detectedAmount, request.currency)}</dd></div>
-                  <div><dt>Reference</dt><dd>{request.detectedReference || request.paymentReference || '—'}</dd></div>
+                  <div><dt>Selected bank</dt><dd>{request.bankName || request.bankId || '—'}</dd></div>
+                  <div><dt>Expected amount</dt><dd>{money(request.amount, request.currency)}</dd></div><div><dt>Detected amount</dt><dd>{request.detectedAmount ? money(request.detectedAmount, request.currency) : 'Not detected'}</dd></div>
                   <div><dt>OCR</dt><dd>{Number(request.ocrConfidence || 0).toFixed(0)}%</dd></div>
-                  <div><dt>Registration</dt><dd>{request.businessRegistrationNumber || '—'}</dd></div>
-                  <div><dt>Identity ref.</dt><dd>{request.identityReference || '—'}</dd></div>
+                  {request.offerName && <div><dt>Offer</dt><dd>{request.offerName} · {formatOfferDuration(request)}</dd></div>}
                 </dl>
                 {request.autoRejectReasons?.length > 0 && (
-                  <div className="auto-reject-box"><strong>Automatic rejection</strong>{request.autoRejectReasons.map((item) => <small key={item}>{item}</small>)}</div>
+                  <div className="auto-reject-box"><strong>Legacy automatic issue</strong>{request.autoRejectReasons.map((item) => <small key={item}>{item}</small>)}</div>
                 )}
                 {request.receiptWarnings?.length > 0 && (
-                  <div className="receipt-review-warnings">{request.receiptWarnings.map((item) => <small key={item}>{item}</small>)}</div>
+                  <div className="receipt-review-warnings"><strong>System review notes</strong>{request.receiptWarnings.map((item) => <small key={item}>{item}</small>)}</div>
                 )}
                 <div className="verification-actions">
-                  {request.status !== 'AUTO_REJECTED' && <button className="button button-primary" onClick={() => openReview(request, 'approve')}>Verify & Activate</button>}
+                  <button className="button button-primary" onClick={() => openReview(request, 'approve')}>Approve & Activate</button>
                   <button className="button button-secondary" onClick={() => openReview(request, 'info')}>Request Info</button>
                   <button className="button button-ghost danger" onClick={() => openReview(request, 'reject')}>Reject</button>
                 </div>
@@ -254,6 +288,21 @@ export default function SuperAdmin({
         </section>
       )}
 
+
+      {tab === 'offers' && <>
+        <div className="page-actions"><div><p className="eyebrow">CUSTOM OFFERS</p><h2>Lifetime, 6-month and special subscriptions</h2><p className="page-subtitle">Create an offer, choose the access level, price and duration, then make it available to subscribers.</p></div><button className="button button-primary" onClick={() => openOffer()}>＋ Create Offer</button></div>
+        <section className="special-offer-admin-grid">
+          {customOffers.map((offer) => <article className="panel special-offer-admin-card" key={offer.id}>
+            <div className="offer-admin-head"><span>★</span><div><small>{PLAN_DEFINITIONS[offer.planId]?.name || offer.planId}</small><h3>{offer.name}</h3></div></div>
+            <p>{offer.description || 'No description'}</p>
+            <div className="offer-admin-stats"><span><small>Price</small><strong>{money(offer.price, offer.currency)}</strong></span><span><small>Duration</small><strong>{formatOfferDuration(offer)}</strong></span></div>
+            <div className="access-card-badges"><span className={`status ${offer.active === false ? 'status-cancelled' : 'status-paid'}`}>{offer.active === false ? 'DISABLED' : 'ACTIVE'}</span></div>
+            <div className="row-actions"><button onClick={() => openOffer(offer)}>Edit</button><button className="danger" onClick={() => removeOffer(offer)}>Delete</button></div>
+          </article>)}
+          {!customOffers.length && <div className="panel empty-backup-state"><span>★</span><strong>No custom offers yet</strong><p>Create an offer such as “6 Months Platinum” or “Lifetime Silver”.</p></div>}
+        </section>
+      </>}
+
       {tab === 'methods' && <>
         <div className="page-actions"><div><p className="eyebrow">PAYMENT METHODS</p><h2>Subscription payment options</h2></div><button className="button button-primary" onClick={() => { setMethodForm({ name: '', type: 'BANK_TRANSFER', instructions: '', accountLabel: '', icon: '▣', active: true }); setMethodEditor({}); }}>＋ Add payment method</button></div>
         <section className="module-card-grid">{paymentMethods.map((method) => <article className="panel module-card" key={method.id}><span className="module-card-icon">{method.icon || '▣'}</span><div><h3>{method.name}</h3><p>{method.instructions || method.accountLabel || 'No instructions'}</p><small>{method.active === false ? 'Disabled' : 'Active'}</small></div><div className="row-actions"><button onClick={() => { setMethodForm({ ...method }); setMethodEditor(method); }}>Edit</button><button className="danger" onClick={() => removeMethod(method)}>Delete</button></div></article>)}</section>
@@ -300,6 +349,22 @@ export default function SuperAdmin({
           {reviewAction === 'approve' && <div className="form-grid"><label><span>Start date (optional)</span><input type="date" value={reviewForm.startsAt} onChange={(event) => setReviewForm({ ...reviewForm, startsAt: event.target.value })} /></label><label><span>End date (optional)</span><input type="date" value={reviewForm.endsAt} onChange={(event) => setReviewForm({ ...reviewForm, endsAt: event.target.value })} /></label></div>}
           <label><span>{reviewAction === 'reject' ? 'Reason' : 'Verification notes / message'}</span><textarea rows="4" value={reviewForm.notes} onChange={(event) => setReviewForm({ ...reviewForm, notes: event.target.value })} /></label>
           <footer className="modal-actions"><button className="button button-ghost" onClick={() => setReview(null)}>Cancel</button><button className="button button-primary" onClick={completeReview}>{reviewAction === 'approve' ? 'Verify & Activate' : reviewAction === 'reject' ? 'Reject Request' : 'Save Information Request'}</button></footer>
+        </Modal>
+      )}
+
+
+      {offerEditor && (
+        <Modal open title={offerEditor.id ? 'Edit custom offer' : 'Create custom offer'} onClose={() => setOfferEditor(null)}>
+          <div className="form-grid">
+            <label><span>Offer name</span><input value={offerForm.name || ''} onChange={(event) => setOfferForm({ ...offerForm, name: event.target.value })} placeholder="6 Months Platinum" /></label>
+            <label><span>Access level</span><select value={offerForm.planId || 'PLATINUM'} onChange={(event) => setOfferForm({ ...offerForm, planId: event.target.value })}><option value="SILVER">VIP Silver</option><option value="GOLD">VIP Gold</option><option value="PLATINUM">VIP Platinum</option></select></label>
+            <label><span>Price (MVR)</span><input type="number" min="0" step="0.01" value={offerForm.price ?? 0} onChange={(event) => setOfferForm({ ...offerForm, price: event.target.value })} /></label>
+            <label><span>Duration type</span><select value={offerForm.durationType || 'MONTHS'} onChange={(event) => setOfferForm({ ...offerForm, durationType: event.target.value })}><option value="DAYS">Days</option><option value="MONTHS">Months</option><option value="YEARS">Years</option><option value="LIFETIME">Lifetime</option></select></label>
+            {offerForm.durationType !== 'LIFETIME' && <label><span>Duration</span><input type="number" min="1" value={offerForm.durationValue ?? 1} onChange={(event) => setOfferForm({ ...offerForm, durationValue: event.target.value })} /></label>}
+            <label className="checkbox-label"><input type="checkbox" checked={offerForm.active !== false} onChange={(event) => setOfferForm({ ...offerForm, active: event.target.checked })} /><span>Offer is available to subscribers</span></label>
+            <label className="form-span-2"><span>Description</span><textarea rows="4" value={offerForm.description || ''} onChange={(event) => setOfferForm({ ...offerForm, description: event.target.value })} placeholder="Special limited-time offer…" /></label>
+          </div>
+          <footer className="modal-actions"><button className="button button-ghost" onClick={() => setOfferEditor(null)}>Cancel</button><button className="button button-primary" onClick={saveOffer}>Save Offer</button></footer>
         </Modal>
       )}
 

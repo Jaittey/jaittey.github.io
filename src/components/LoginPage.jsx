@@ -29,7 +29,7 @@ export default function LoginPage({
           <img className="login-company-logo" src={`${import.meta.env.BASE_URL}images/SB_Logo.png`} alt="Small Business" />
         </div>
 
-        <p className="eyebrow">SMALL BUSINESS (SB) v3.2</p>
+        <p className="eyebrow">SMALL BUSINESS (SB) v3.3</p>
         <h1>Your business. Your workspace. Your data.</h1>
         <p className="login-copy">Sign in with Google, register your company, choose the features you need, and invite your team into a protected company workspace.</p>
 

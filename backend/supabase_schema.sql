@@ -67,7 +67,11 @@ create table if not exists public.business_subscriptions (
   plan_id text not null default '',
   plan_name text not null default '',
   status text not null default 'NONE' check (status in ('NONE','PENDING_VERIFICATION','ACTIVE','SUSPENDED','EXPIRED','REJECTED')),
-  billing_period text not null default 'MONTHLY' check (billing_period in ('MONTHLY','YEARLY')),
+  billing_period text not null default 'MONTHLY' check (billing_period in ('MONTHLY','YEARLY','TRIAL','CUSTOM')),
+  offer_id uuid,
+  offer_name text not null default '',
+  duration_type text not null default '',
+  duration_value integer not null default 0,
   amount numeric(14,2) not null default 0,
   currency text not null default 'MVR',
   starts_at timestamptz,
@@ -126,6 +130,22 @@ create table if not exists public.platform_plan_settings (
   updated_at timestamptz not null default now()
 );
 
+
+create table if not exists public.platform_custom_offers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text not null default '',
+  plan_id text not null check (plan_id in ('SILVER','GOLD','PLATINUM')),
+  price numeric(14,2) not null default 0,
+  currency text not null default 'MVR',
+  duration_type text not null check (duration_type in ('DAYS','MONTHS','YEARS','LIFETIME')),
+  duration_value integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (duration_type='LIFETIME' or duration_value>0)
+);
+
 create table if not exists public.platform_payment_methods (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -157,7 +177,11 @@ create table if not exists public.subscription_requests (
   business_name text not null default '',
   plan_id text not null,
   plan_name text not null default '',
-  billing_period text not null default 'MONTHLY' check (billing_period in ('MONTHLY','YEARLY')),
+  billing_period text not null default 'MONTHLY' check (billing_period in ('MONTHLY','YEARLY','CUSTOM')),
+  offer_id uuid references public.platform_custom_offers(id) on delete set null,
+  offer_name text not null default '',
+  duration_type text not null default '',
+  duration_value integer not null default 0,
   amount numeric(14,2) not null default 0,
   currency text not null default 'MVR',
   payment_method_id uuid,
@@ -211,6 +235,10 @@ create table if not exists public.subscription_payments (
   plan_id text not null,
   plan_name text not null default '',
   billing_period text not null default 'MONTHLY',
+  offer_id uuid references public.platform_custom_offers(id) on delete set null,
+  offer_name text not null default '',
+  duration_type text not null default '',
+  duration_value integer not null default 0,
   amount numeric(14,2) not null default 0,
   currency text not null default 'MVR',
   payment_method_id uuid,
@@ -673,8 +701,14 @@ begin
     insert into public.business_subscriptions(
       business_id,business_name,plan_id,plan_name,status,billing_period,amount,currency,starts_at,ends_at,approved_at,approved_by,complimentary
     ) values (
-      bid,bname,'PLATINUM','VIP Platinum','ACTIVE','YEARLY',0,'MVR',now(),null,now(),em,true
-    ) on conflict (business_id) do update set plan_id='PLATINUM',plan_name='VIP Platinum',status='ACTIVE',complimentary=true,updated_at=now();
+      bid,bname,'PLATINUM','Founder Platinum','ACTIVE','CUSTOM',0,'MVR',now(),null,now(),em,true
+    ) on conflict (business_id) do update set plan_id='PLATINUM',plan_name='Founder Platinum',status='ACTIVE',billing_period='CUSTOM',ends_at=null,complimentary=true,updated_at=now();
+  else
+    insert into public.business_subscriptions(
+      business_id,business_name,plan_id,plan_name,status,billing_period,amount,currency,starts_at,ends_at,approved_at,approved_by,complimentary
+    ) values (
+      bid,bname,'PLATINUM','7-Day Free Trial','ACTIVE','TRIAL',0,'MVR',now(),now()+interval '7 days',now(),'SYSTEM',true
+    ) on conflict (business_id) do update set plan_id='PLATINUM',plan_name='7-Day Free Trial',status='ACTIVE',billing_period='TRIAL',starts_at=now(),ends_at=now()+interval '7 days',complimentary=true,updated_at=now();
   end if;
 
   return bid;
@@ -854,20 +888,11 @@ begin
   if not public.sb_is_business_admin(p_business_id) then
     raise exception 'Company Administrator access required.';
   end if;
-
-  if coalesce(p_bank_id,'')<>'' and coalesce(p_reference,'')<>'' and exists(
-    select 1 from public.subscription_receipt_references
-    where bank_id=upper(p_bank_id) and normalized_reference=upper(p_reference)
-  ) then
-    result:=result||jsonb_build_array(jsonb_build_object('type','REFERENCE'));
-  end if;
-
   if coalesce(p_file_hash,'')<>'' and exists(
-    select 1 from public.subscription_receipt_hashes where receipt_file_hash=p_file_hash
+    select 1 from public.subscription_receipt_hashes h where h.receipt_file_hash=p_file_hash
   ) then
     result:=result||jsonb_build_array(jsonb_build_object('type','FILE_HASH'));
   end if;
-
   return result;
 end;
 $$;
@@ -882,127 +907,119 @@ declare
   bid uuid := (p_payload->>'business_id')::uuid;
   rid uuid := gen_random_uuid();
   selected_bank text := upper(coalesce(p_payload->>'bank_id',''));
-  detected_bank text := upper(coalesce(p_payload->>'detected_bank_id',''));
-  ref text := upper(regexp_replace(coalesce(p_payload->>'normalized_reference',''),'[^A-Z0-9]','','g'));
   hash text := coalesce(p_payload->>'receipt_file_hash','');
   storage_path text := coalesce(p_payload->>'receipt_storage_path','');
   billing text := upper(coalesce(p_payload->>'billing_period','MONTHLY'));
   selected_plan text := upper(coalesce(p_payload->>'plan_id',''));
-  reasons jsonb := coalesce(p_payload->'auto_reject_reasons','[]'::jsonb);
-  warnings jsonb := coalesce(p_payload->'receipt_warnings','[]'::jsonb);
-  duplicate_ref boolean := false;
+  requested_offer uuid := nullif(p_payload->>'offer_id','')::uuid;
+  issues jsonb := coalesce(p_payload->'receipt_warnings','[]'::jsonb);
   duplicate_hash boolean := false;
-  stat text;
   expected_amount numeric := 0;
-  detected_amount numeric := coalesce(nullif(p_payload->>'detected_amount','')::numeric,0);
+  v_detected_amount numeric := coalesce(nullif(p_payload->>'detected_amount','')::numeric,0);
+  selected_currency text := 'MVR';
+  selected_plan_name text := coalesce(p_payload->>'plan_name','');
+  selected_offer_name text := '';
+  selected_duration_type text := '';
+  selected_duration_value integer := 0;
   bank_row public.platform_bank_accounts%rowtype;
   plan_row public.platform_plan_settings%rowtype;
+  offer_row public.platform_custom_offers%rowtype;
 begin
   if not public.sb_is_business_admin(bid) then raise exception 'Only the Company Administrator can submit a subscription.'; end if;
   if lower(coalesce(p_payload->>'requester_email',''))<>public.sb_email() then raise exception 'Requester identity does not match the signed-in account.'; end if;
-  if billing not in ('MONTHLY','YEARLY') then raise exception 'Billing period must be MONTHLY or YEARLY.'; end if;
-  if selected_plan not in ('SILVER','GOLD','PLATINUM') then raise exception 'Unsupported subscription package.'; end if;
   if selected_bank not in ('BML','MIB') then raise exception 'Unsupported subscription bank.'; end if;
 
   if exists(
-    select 1 from public.subscription_requests
-    where business_id=bid and status in ('PENDING_VERIFICATION','MORE_INFO_REQUIRED')
+    select 1 from public.subscription_requests sr
+    where sr.business_id=bid and sr.status in ('PENDING_VERIFICATION','MORE_INFO_REQUIRED')
   ) then
     raise exception 'This business already has a subscription request waiting for verification.';
   end if;
 
-  select * into plan_row from public.platform_plan_settings where plan_id=selected_plan and active=true;
-  if not found then raise exception 'The selected subscription package is not active.'; end if;
-  expected_amount := case when billing='YEARLY' then plan_row.yearly_price else plan_row.monthly_price end;
+  if requested_offer is not null then
+    select * into offer_row from public.platform_custom_offers o where o.id=requested_offer and o.active=true;
+    if not found then raise exception 'The selected custom offer is no longer available.'; end if;
+    selected_plan := offer_row.plan_id;
+    selected_plan_name := offer_row.name || ' · ' || offer_row.plan_id;
+    selected_offer_name := offer_row.name;
+    selected_duration_type := offer_row.duration_type;
+    selected_duration_value := offer_row.duration_value;
+    expected_amount := offer_row.price;
+    selected_currency := offer_row.currency;
+    billing := 'CUSTOM';
+  else
+    if billing not in ('MONTHLY','YEARLY') then raise exception 'Billing period must be MONTHLY or YEARLY.'; end if;
+    if selected_plan not in ('SILVER','GOLD','PLATINUM') then raise exception 'Unsupported subscription package.'; end if;
+    select * into plan_row from public.platform_plan_settings p where p.plan_id=selected_plan and p.active=true;
+    if not found then raise exception 'The selected subscription package is not active.'; end if;
+    expected_amount := case when billing='YEARLY' then plan_row.yearly_price else plan_row.monthly_price end;
+    selected_currency := plan_row.currency;
+  end if;
+
   if expected_amount<=0 then raise exception 'The selected subscription price has not been configured.'; end if;
 
-  select * into bank_row from public.platform_bank_accounts where bank_id=selected_bank and active=true;
+  select * into bank_row from public.platform_bank_accounts b where b.bank_id=selected_bank and b.active=true;
   if not found then raise exception 'The selected bank-transfer account is not active.'; end if;
 
   if storage_path='' or position(bid::text||'/' in storage_path)<>1 then
-    reasons:=reasons||jsonb_build_array('Uploaded receipt path is invalid for this business.');
+    raise exception 'Uploaded receipt path is invalid for this business.';
   elsif not exists(
-    select 1 from storage.objects where bucket_id='subscription-receipts' and name=storage_path
+    select 1 from storage.objects o where o.bucket_id='subscription-receipts' and o.name=storage_path
   ) then
-    reasons:=reasons||jsonb_build_array('Uploaded receipt file could not be verified in storage.');
+    raise exception 'Uploaded receipt file could not be verified in storage.';
   end if;
 
-  if detected_bank<>'' and detected_bank<>selected_bank then
-    reasons:=reasons||jsonb_build_array('Detected bank does not match the selected bank.');
-  end if;
-  if detected_amount<=0 then
-    reasons:=reasons||jsonb_build_array('Transferred amount could not be detected.');
-  elsif abs(detected_amount-expected_amount)>0.01 then
-    reasons:=reasons||jsonb_build_array('Transferred amount does not match the configured subscription price.');
-  end if;
-  if ref='' then reasons:=reasons||jsonb_build_array('Transaction reference could not be detected.'); end if;
-  if hash='' then reasons:=reasons||jsonb_build_array('Receipt file fingerprint is missing.'); end if;
-
-  if selected_bank='BML' and regexp_replace(coalesce(p_payload->>'detected_destination_account',''),'[^0-9]','','g') <> regexp_replace(bank_row.account_number,'[^0-9]','','g') then
-    reasons:=reasons||jsonb_build_array('BML destination account does not match the configured subscription account.');
-  elsif selected_bank='MIB' and coalesce(p_payload->>'detected_destination_account','')='' then
-    warnings:=warnings||jsonb_build_array('MIB receipt format may not show the destination account number; manual Super Admin verification is required.');
-  end if;
-
-  duplicate_ref := ref<>'' and exists(
-    select 1 from public.subscription_receipt_references
-    where bank_id=selected_bank and normalized_reference=ref
-  );
   duplicate_hash := hash<>'' and exists(
-    select 1 from public.subscription_receipt_hashes where receipt_file_hash=hash
+    select 1 from public.subscription_receipt_hashes h where h.receipt_file_hash=hash
   );
-  if duplicate_ref then reasons:=reasons||jsonb_build_array('Duplicate transaction reference detected.'); end if;
-  if duplicate_hash then reasons:=reasons||jsonb_build_array('This exact receipt image has already been submitted.'); end if;
+  if duplicate_hash then issues:=issues||jsonb_build_array('Possible duplicate: this exact slip image has already been submitted.'); end if;
 
-  stat:=case when jsonb_array_length(reasons)>0 then 'AUTO_REJECTED' else 'PENDING_VERIFICATION' end;
+  if v_detected_amount<=0 then
+    issues:=issues||jsonb_build_array('Transferred amount could not be detected automatically.');
+  elsif abs(v_detected_amount-expected_amount)>0.01 then
+    issues:=issues||jsonb_build_array('Detected amount does not match the selected subscription amount.');
+  end if;
 
   insert into public.subscription_requests(
-    id,request_id,business_id,business_name,plan_id,plan_name,billing_period,amount,currency,
-    bank_id,detected_bank_id,bank_name,destination_account_number,destination_account_name,detected_amount,detected_reference,normalized_reference,
-    detected_destination_account,ocr_confidence,ocr_text,receipt_file_hash,receipt_storage_path,receipt_file_name,receipt_file_type,
-    receipt_risk_level,receipt_warnings,auto_reject_reasons,payer_name,payer_contact,business_registration_number,identity_reference,
-    verification_notes,requester_id,requester_email,requester_name,status,verification_status,submitted_at,created_at,updated_at
+    id,request_id,business_id,business_name,plan_id,plan_name,billing_period,offer_id,offer_name,duration_type,duration_value,amount,currency,
+    bank_id,bank_name,destination_account_number,destination_account_name,detected_amount,
+    ocr_confidence,ocr_text,receipt_file_hash,receipt_storage_path,receipt_file_name,receipt_file_type,
+    receipt_risk_level,receipt_warnings,auto_reject_reasons,requester_id,requester_email,requester_name,status,verification_status,submitted_at,created_at,updated_at
   ) values (
-    rid,rid,bid,coalesce(p_payload->>'business_name',''),selected_plan,coalesce(p_payload->>'plan_name',''),billing,
-    expected_amount,plan_row.currency,selected_bank,detected_bank,bank_row.name,bank_row.account_number,bank_row.account_name,detected_amount,
-    coalesce(p_payload->>'detected_reference',''),ref,coalesce(p_payload->>'detected_destination_account',''),
+    rid,rid,bid,coalesce(p_payload->>'business_name',''),selected_plan,selected_plan_name,billing,requested_offer,selected_offer_name,selected_duration_type,selected_duration_value,
+    expected_amount,selected_currency,selected_bank,bank_row.name,bank_row.account_number,bank_row.account_name,v_detected_amount,
     coalesce(nullif(p_payload->>'ocr_confidence','')::numeric,0),coalesce(p_payload->>'ocr_text',''),hash,storage_path,
-    coalesce(p_payload->>'receipt_file_name',''),coalesce(p_payload->>'receipt_file_type',''),coalesce(p_payload->>'receipt_risk_level','REVIEW'),
-    warnings,reasons,coalesce(p_payload->>'payer_name',''),coalesce(p_payload->>'payer_contact',''),coalesce(p_payload->>'business_registration_number',''),
-    coalesce(p_payload->>'identity_reference',''),coalesce(p_payload->>'verification_notes',''),(select auth.uid()),public.sb_email(),
-    coalesce(p_payload->>'requester_name',''),stat,case when stat='AUTO_REJECTED' then 'AUTO_REJECTED' else 'PENDING' end,now(),now(),now()
+    coalesce(p_payload->>'receipt_file_name',''),coalesce(p_payload->>'receipt_file_type',''),case when jsonb_array_length(issues)>0 then 'REVIEW' else 'LOW' end,
+    issues,'[]'::jsonb,(select auth.uid()),public.sb_email(),coalesce(p_payload->>'requester_name',''),'PENDING_VERIFICATION','PENDING',now(),now(),now()
   );
 
   insert into public.subscription_payments(
-    id,request_id,business_id,business_name,plan_id,plan_name,billing_period,amount,currency,bank_id,detected_bank_id,bank_name,destination_account_number,destination_account_name,
-    detected_amount,detected_reference,normalized_reference,detected_destination_account,ocr_confidence,ocr_text,receipt_file_hash,receipt_storage_path,
-    receipt_file_name,receipt_file_type,receipt_risk_level,receipt_warnings,auto_reject_reasons,payer_name,payer_contact,business_registration_number,
-    identity_reference,verification_notes,requester_id,requester_email,requester_name,status,verification_status,payment_status,submitted_at,created_at,updated_at
+    id,request_id,business_id,business_name,plan_id,plan_name,billing_period,offer_id,offer_name,duration_type,duration_value,amount,currency,
+    bank_id,bank_name,destination_account_number,destination_account_name,detected_amount,
+    ocr_confidence,ocr_text,receipt_file_hash,receipt_storage_path,receipt_file_name,receipt_file_type,
+    receipt_risk_level,receipt_warnings,auto_reject_reasons,requester_id,requester_email,requester_name,status,verification_status,payment_status,submitted_at,created_at,updated_at
   )
-  select id,request_id,business_id,business_name,plan_id,plan_name,billing_period,amount,currency,bank_id,detected_bank_id,bank_name,destination_account_number,destination_account_name,
-    detected_amount,detected_reference,normalized_reference,detected_destination_account,ocr_confidence,ocr_text,receipt_file_hash,receipt_storage_path,
-    receipt_file_name,receipt_file_type,receipt_risk_level,receipt_warnings,auto_reject_reasons,payer_name,payer_contact,business_registration_number,
-    identity_reference,verification_notes,requester_id,requester_email,requester_name,status,verification_status,stat,submitted_at,created_at,updated_at
-  from public.subscription_requests where id=rid;
+  select sr.id,sr.request_id,sr.business_id,sr.business_name,sr.plan_id,sr.plan_name,sr.billing_period,sr.offer_id,sr.offer_name,sr.duration_type,sr.duration_value,sr.amount,sr.currency,
+    sr.bank_id,sr.bank_name,sr.destination_account_number,sr.destination_account_name,sr.detected_amount,
+    sr.ocr_confidence,sr.ocr_text,sr.receipt_file_hash,sr.receipt_storage_path,sr.receipt_file_name,sr.receipt_file_type,
+    sr.receipt_risk_level,sr.receipt_warnings,sr.auto_reject_reasons,sr.requester_id,sr.requester_email,sr.requester_name,sr.status,sr.verification_status,'PENDING_VERIFICATION',sr.submitted_at,sr.created_at,sr.updated_at
+  from public.subscription_requests sr where sr.id=rid;
 
-  if not duplicate_ref and ref<>'' then
-    insert into public.subscription_receipt_references(bank_id,normalized_reference,business_id,request_id)
-    values(selected_bank,ref,bid,rid);
-  end if;
   if not duplicate_hash and hash<>'' then
     insert into public.subscription_receipt_hashes(receipt_file_hash,business_id,request_id)
-    values(hash,bid,rid);
+    values(hash,bid,rid)
+    on conflict (receipt_file_hash) do nothing;
   end if;
 
   insert into public.mail_queue(recipient,subject,body_text,metadata)
   values(
     'jaeitte@gmail.com',
-    case when stat='AUTO_REJECTED' then 'Auto-rejected SB subscription payment' else 'New SB subscription payment' end,
-    'Business: '||coalesce(p_payload->>'business_name','')||E'\nPackage: '||selected_plan||' ('||billing||')'||E'\nExpected amount: '||plan_row.currency||' '||expected_amount::text||E'\nDetected amount: '||detected_amount::text||E'\nBank: '||selected_bank||E'\nReference: '||coalesce(p_payload->>'detected_reference','')||E'\nStatus: '||stat,
-    jsonb_build_object('type','SUBSCRIPTION_REQUEST','businessId',bid::text,'subscriptionRequestId',rid::text)
+    case when jsonb_array_length(issues)>0 then 'SB payment slip needs review' else 'New SB subscription payment' end,
+    'Business: '||coalesce(p_payload->>'business_name','')||E'\nSubscription: '||selected_plan_name||E'\nExpected amount: '||selected_currency||' '||expected_amount::text||E'\nDetected amount: '||v_detected_amount::text||E'\nBank: '||selected_bank||E'\nIssues: '||issues::text||E'\nStatus: PENDING_VERIFICATION',
+    jsonb_build_object('type','SUBSCRIPTION_REQUEST','businessId',bid::text,'subscriptionRequestId',rid::text,'hasIssues',jsonb_array_length(issues)>0)
   );
 
-  return jsonb_build_object('id',rid,'status',stat,'reasons',reasons,'warnings',warnings);
+  return jsonb_build_object('id',rid,'status','PENDING_VERIFICATION','issues',issues);
 end;
 $$;
 
@@ -1012,26 +1029,45 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare r public.subscription_requests%rowtype; start_ts timestamptz; end_ts timestamptz;
+declare
+  r public.subscription_requests%rowtype;
+  start_ts timestamptz;
+  end_ts timestamptz;
 begin
   if not public.sb_is_super_admin() then raise exception 'Super Admin access required.'; end if;
-  select * into r from public.subscription_requests where id=p_request_id for update;
+  select * into r from public.subscription_requests sr where sr.id=p_request_id for update;
   if not found then raise exception 'Subscription request not found.'; end if;
 
   if upper(p_action)='APPROVE' then
-    if r.status='AUTO_REJECTED' then
-      raise exception 'Automatically rejected receipts cannot be activated. Ask the subscriber to submit a new valid bank slip.';
-    end if;
     start_ts:=coalesce(p_starts_at::timestamptz,now());
-    end_ts:=coalesce(p_ends_at::timestamptz,start_ts + case when r.billing_period='YEARLY' then interval '1 year' else interval '1 month' end);
+    if p_ends_at is not null then
+      end_ts:=p_ends_at::timestamptz;
+    elsif r.billing_period='YEARLY' then
+      end_ts:=start_ts+interval '1 year';
+    elsif r.billing_period='MONTHLY' then
+      end_ts:=start_ts+interval '1 month';
+    elsif r.billing_period='CUSTOM' and r.duration_type='LIFETIME' then
+      end_ts:=null;
+    elsif r.billing_period='CUSTOM' and r.duration_type='DAYS' then
+      end_ts:=start_ts+(r.duration_value*interval '1 day');
+    elsif r.billing_period='CUSTOM' and r.duration_type='MONTHS' then
+      end_ts:=start_ts+make_interval(months=>r.duration_value);
+    elsif r.billing_period='CUSTOM' and r.duration_type='YEARS' then
+      end_ts:=start_ts+make_interval(years=>r.duration_value);
+    else
+      end_ts:=start_ts+interval '1 month';
+    end if;
+
     insert into public.business_subscriptions(
-      business_id,business_name,plan_id,plan_name,status,billing_period,amount,currency,starts_at,ends_at,approved_at,approved_by,verification_notes,updated_at
+      business_id,business_name,plan_id,plan_name,status,billing_period,offer_id,offer_name,duration_type,duration_value,amount,currency,starts_at,ends_at,approved_at,approved_by,verification_notes,complimentary,updated_at
     ) values (
-      r.business_id,r.business_name,r.plan_id,r.plan_name,'ACTIVE',r.billing_period,r.amount,r.currency,start_ts,end_ts,now(),public.sb_email(),coalesce(p_notes,''),now()
+      r.business_id,r.business_name,r.plan_id,r.plan_name,'ACTIVE',r.billing_period,r.offer_id,r.offer_name,r.duration_type,r.duration_value,r.amount,r.currency,start_ts,end_ts,now(),public.sb_email(),coalesce(p_notes,''),false,now()
     ) on conflict (business_id) do update set
       business_name=excluded.business_name,plan_id=excluded.plan_id,plan_name=excluded.plan_name,status='ACTIVE',billing_period=excluded.billing_period,
+      offer_id=excluded.offer_id,offer_name=excluded.offer_name,duration_type=excluded.duration_type,duration_value=excluded.duration_value,
       amount=excluded.amount,currency=excluded.currency,starts_at=excluded.starts_at,ends_at=excluded.ends_at,approved_at=now(),approved_by=public.sb_email(),
-      verification_notes=excluded.verification_notes,updated_at=now();
+      verification_notes=excluded.verification_notes,complimentary=false,updated_at=now();
+
     update public.subscription_requests set status='APPROVED',verification_status='VERIFIED',approved_at=now(),approved_by=public.sb_email(),verification_notes=coalesce(p_notes,''),updated_at=now() where id=p_request_id;
     update public.subscription_payments set status='APPROVED',verification_status='VERIFIED',payment_status='VERIFIED',verified_at=now(),verified_by=public.sb_email(),updated_at=now() where id=p_request_id;
   elsif upper(p_action)='REJECT' then
@@ -1051,13 +1087,22 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare s public.business_subscriptions%rowtype;
+declare s public.business_subscriptions%rowtype; new_end timestamptz;
 begin
   if not public.sb_is_super_admin() then raise exception 'Super Admin access required.'; end if;
-  select * into s from public.business_subscriptions where business_id=p_business_id for update;
+  select * into s from public.business_subscriptions bs where bs.business_id=p_business_id for update;
   if not found then raise exception 'Subscription not found.'; end if;
-  if p_status='ACTIVE' and (s.ends_at is null or s.ends_at<=now()) then
-    update public.business_subscriptions set status='ACTIVE',starts_at=now(),ends_at=now()+case when s.billing_period='YEARLY' then interval '1 year' else interval '1 month' end,updated_at=now() where business_id=p_business_id;
+
+  if p_status='ACTIVE' and s.ends_at is not null and s.ends_at<=now() then
+    if s.billing_period='YEARLY' then new_end:=now()+interval '1 year';
+    elsif s.billing_period='MONTHLY' then new_end:=now()+interval '1 month';
+    elsif s.billing_period='TRIAL' then new_end:=now()+interval '7 days';
+    elsif s.duration_type='LIFETIME' then new_end:=null;
+    elsif s.duration_type='DAYS' then new_end:=now()+(s.duration_value*interval '1 day');
+    elsif s.duration_type='MONTHS' then new_end:=now()+make_interval(months=>s.duration_value);
+    elsif s.duration_type='YEARS' then new_end:=now()+make_interval(years=>s.duration_value);
+    else new_end:=now()+interval '1 month'; end if;
+    update public.business_subscriptions set status='ACTIVE',starts_at=now(),ends_at=new_end,updated_at=now() where business_id=p_business_id;
   else
     update public.business_subscriptions set status=p_status,updated_at=now() where business_id=p_business_id;
   end if;
@@ -1101,6 +1146,12 @@ alter table public.business_records enable row level security;
 alter table public.contract_generated_periods enable row level security;
 alter table public.company_assets enable row level security;
 alter table public.platform_plan_settings enable row level security;
+alter table public.platform_custom_offers enable row level security;
+drop policy if exists platform_custom_offers_select on public.platform_custom_offers;
+drop policy if exists platform_custom_offers_write on public.platform_custom_offers;
+create policy platform_custom_offers_select on public.platform_custom_offers for select to authenticated using (true);
+create policy platform_custom_offers_write on public.platform_custom_offers for all to authenticated using (public.sb_is_super_admin()) with check (public.sb_is_super_admin());
+
 alter table public.platform_payment_methods enable row level security;
 alter table public.platform_bank_accounts enable row level security;
 alter table public.subscription_requests enable row level security;
@@ -1289,7 +1340,7 @@ declare t text;
 begin
   foreach t in array array[
     'platform_users','businesses','business_memberships','business_subscriptions','business_records',
-    'company_assets','platform_plan_settings','platform_payment_methods','platform_bank_accounts',
+    'company_assets','platform_plan_settings','platform_custom_offers','platform_payment_methods','platform_bank_accounts',
     'subscription_requests','subscription_payments'
   ] loop
     if not exists (
@@ -1308,4 +1359,4 @@ grant usage on schema public to authenticated;
 grant select,insert,update,delete on all tables in schema public to authenticated;
 grant usage,select on all sequences in schema public to authenticated;
 
--- End of Small Business v3.2 Supabase schema.
+-- End of Small Business v3.3 Supabase schema.

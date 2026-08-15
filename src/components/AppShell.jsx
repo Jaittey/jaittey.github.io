@@ -30,7 +30,7 @@ export default function AppShell({
   return <div className="app-layout v21-layout v219-layout v300-layout">
     <aside className={`sidebar enterprise-sidebar mobile-navigation-drawer ${drawerOpen?'mobile-open':''}`}>
       <div className="mobile-drawer-heading"><div><small>SMALL BUSINESS (SB)</small><strong>Navigation</strong></div><button type="button" aria-label="Close navigation" onClick={()=>setDrawerOpen(false)}>×</button></div>
-      <div className="sidebar-brand"><div className="sidebar-logo-surface"><img className="sidebar-company-logo" src={companyLogo||`${import.meta.env.BASE_URL}images/SB_Logo.png`} alt="Small Business"/></div><span className="sidebar-business-name">{businessName||'Business Workspace'}</span><small className="version-pill">SUPABASE v3.2.0</small></div>
+      <div className="sidebar-brand"><div className="sidebar-logo-surface"><img className="sidebar-company-logo" src={companyLogo||`${import.meta.env.BASE_URL}images/SB_Logo.png`} alt="Small Business"/></div><span className="sidebar-business-name">{businessName||'Business Workspace'}</span><small className="version-pill">SUPABASE v3.3.0</small></div>
       <div className="sidebar-module-search"><span>⌕</span><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Find a module"/></div>
       {searchResults.length>0&&<div className="sidebar-search-results">{searchResults.map(([id,label])=><button key={id} onClick={()=>navigate(id)}>{label}</button>)}</div>}
       <nav className="sidebar-nav enterprise-nav">{renderNav()}</nav>
@@ -39,7 +39,7 @@ export default function AppShell({
     <div className="main-area">
       <header className="topbar enterprise-topbar compact-mobile-topbar">
         <button className="mobile-menu-button" aria-label="Open navigation" onClick={()=>{setDrawerOpen(true);setProfileOpen(false);}}>☰</button>
-        <div className="topbar-title"><p className="eyebrow">SMALL BUSINESS (SB) v3.2.0</p><h1>{PAGE_TITLES[page]||'Workspace'}</h1><div className="workspace-switcher"><select value={activeBusinessId} onChange={(e)=>onBusinessChange?.(e.target.value)}>{businesses.map((item)=><option key={item.businessId} value={item.businessId}>{item.businessName||'Business'}</option>)}</select>{canRegisterBusiness&&<button type="button" onClick={onRegisterBusiness} title="Register your business">＋</button>}</div></div>
+        <div className="topbar-title"><p className="eyebrow">SMALL BUSINESS (SB) v3.3.0</p><h1>{PAGE_TITLES[page]||'Workspace'}</h1><div className="workspace-switcher"><select value={activeBusinessId} onChange={(e)=>onBusinessChange?.(e.target.value)}>{businesses.map((item)=><option key={item.businessId} value={item.businessId}>{item.businessName||'Business'}</option>)}</select>{canRegisterBusiness&&<button type="button" onClick={onRegisterBusiness} title="Register your business">＋</button>}</div></div>
         <div className="global-search desktop-module-search"><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search modules…"/>{searchResults.length>0&&<div className="search-results">{searchResults.map(([id,label])=><button key={id} onClick={()=>navigate(id)}>{label}</button>)}</div>}</div>
         <div className="topbar-actions">
           <button type="button" className={`subscription-mini ${subscription?.status==='ACTIVE'?'active':''}`} onClick={()=>navigate('subscription')}><span>★</span><b>{subscription?.planName||subscription?.planId||'Subscribe'}</b></button>

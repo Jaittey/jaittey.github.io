@@ -93,6 +93,7 @@ export default function App() {
   const platformPlans = useGlobalCollection('platformPlanSettings', '', authenticated);
   const paymentMethods = useGlobalCollection('platformPaymentMethods', 'createdAt', authenticated);
   const platformBankAccounts = useGlobalCollection('platformBankAccounts', '', authenticated);
+  const platformCustomOffers = useGlobalCollection('platformCustomOffers', 'createdAt', authenticated);
 
   const [page, setPage] = useState('dashboard');
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -129,14 +130,14 @@ export default function App() {
   const disconnect = () => { disconnectDrive(); setDriveConnected(false); notify('Google Drive disconnected.'); };
   const confirmLogout = async () => { setLoggingOut(true); try { disconnectDrive(); await logout(); setShowLogoutConfirm(false); } finally { setLoggingOut(false); } };
 
-  if (authLoading || workspace.loading) return <div className="loading-screen"><div className="loader"/><p>Loading Small Business (SB) v3.2…</p></div>;
+  if (authLoading || workspace.loading) return <div className="loading-screen"><div className="loader"/><p>Loading Small Business (SB) v3.3…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={authError} loading={authLoading}/>;
 
   if (!businessId || showBusinessRegistration) {
     if (isSuperAdmin && page === 'super-admin' && !showBusinessRegistration) {
       return <main className="standalone-super-admin-shell">
         <button className="floating-back-workspace" onClick={() => setPage('dashboard')}>← Business setup</button>
-        <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} currentBusiness={null} notify={notify}/>
+        <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={null} notify={notify}/>
         <Toast message={toast.message} type={toast.type}/>
       </main>;
     }
@@ -155,8 +156,8 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
-      case 'subscription': return <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} user={user} role={role} notify={notify}/>;
-      case 'super-admin': return <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} currentBusiness={business} notify={notify}/>;
+      case 'subscription': return <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} user={user} role={role} notify={notify}/>;
+      case 'super-admin': return <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={business} notify={notify}/>;
       case 'invoices': return <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected}/>;
       case 'quotes': return <Quotes quotes={quotes.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} openInvoices={()=>setPage('invoices')}/>;
       case 'billing': return <Billing contracts={billingContracts.items} customers={customers.items} {...common} openInvoices={()=>setPage('invoices')}/>;
@@ -199,7 +200,7 @@ export default function App() {
       case 'settings': return <Settings settings={settings} companyAssets={companyAssets} notify={notify} driveConnected={driveConnected||isDriveConnected()} markDriveConnected={setDriveConnected} planId={planId}/>;
       case 'activity': return <ActivityLogs logs={activityLogs.items}/>;
       case 'users': return <UserManagement users={users.items} notify={notify}/>;
-      default: return can('dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={documentSettings} role={role} onNavigate={setPage}/> : <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} user={user} role={role} notify={notify}/>;
+      default: return can('dashboard') ? <Dashboard invoices={invoices.items} expenses={expenses.items} products={products.items} customers={customers.items} employees={employees.items} payroll={payroll.items} budgets={budgets.items} settings={documentSettings} role={role} onNavigate={setPage}/> : <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} user={user} role={role} notify={notify}/>;
     }
   };
 

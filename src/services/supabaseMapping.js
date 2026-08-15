@@ -18,6 +18,7 @@ export const TABLE_ALIASES = {
   platformPlanSettings: 'platform_plan_settings',
   platformPaymentMethods: 'platform_payment_methods',
   platformBankAccounts: 'platform_bank_accounts',
+  platformCustomOffers: 'platform_custom_offers',
 };
 
 export const ORDER_FIELD_ALIASES = {
@@ -28,6 +29,7 @@ export const ORDER_FIELD_ALIASES = {
   platformPlanSettings: { createdAt: 'created_at', updatedAt: 'updated_at' },
   platformPaymentMethods: { createdAt: 'created_at', updatedAt: 'updated_at' },
   platformBankAccounts: { createdAt: 'created_at', updatedAt: 'updated_at' },
+  platformCustomOffers: { createdAt: 'created_at', updatedAt: 'updated_at' },
 };
 
 const common = {
@@ -56,6 +58,10 @@ export function mapPlatformRow(alias, row) {
       plan_id: 'planId',
       plan_name: 'planName',
       billing_period: 'billingPeriod',
+    offer_id: 'offerId',
+    offer_name: 'offerName',
+    duration_type: 'durationType',
+    duration_value: 'durationValue',
       starts_at: 'startsAt',
       ends_at: 'endsAt',
       approved_at: 'approvedAt',
@@ -108,6 +114,16 @@ export function mapPlatformRow(alias, row) {
     return { ...mapped, id: mapped.bankId || mapped.id };
   }
 
+
+  if (alias === 'platformCustomOffers') {
+    return map(row, {
+      ...common,
+      plan_id: 'planId',
+      duration_type: 'durationType',
+      duration_value: 'durationValue',
+    });
+  }
+
   if (alias === 'subscriptionPayments') {
     return mapSubscriptionRow(row);
   }
@@ -137,6 +153,10 @@ export function mapSubscriptionRow(row) {
     plan_id: 'planId',
     plan_name: 'planName',
     billing_period: 'billingPeriod',
+    offer_id: 'offerId',
+    offer_name: 'offerName',
+    duration_type: 'durationType',
+    duration_value: 'durationValue',
     payment_method_id: 'paymentMethodId',
     payment_method_name: 'paymentMethodName',
     payment_reference: 'paymentReference',

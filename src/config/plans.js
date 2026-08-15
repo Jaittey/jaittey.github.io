@@ -39,3 +39,12 @@ export const planAllowsPage = (planId, page) => {
   return Boolean(getPlan(planId)?.pages.includes(page));
 };
 export const hasPlatinum = (planId) => planId === PLAN_IDS.PLATINUM;
+export const formatOfferDuration = (offer = {}) => {
+  const type = String(offer.durationType || '').toUpperCase();
+  const value = Number(offer.durationValue || 0);
+  if (type === 'LIFETIME') return 'Lifetime';
+  if (type === 'DAYS') return `${value} day${value === 1 ? '' : 's'}`;
+  if (type === 'MONTHS') return `${value} month${value === 1 ? '' : 's'}`;
+  if (type === 'YEARS') return `${value} year${value === 1 ? '' : 's'}`;
+  return 'Custom duration';
+};
