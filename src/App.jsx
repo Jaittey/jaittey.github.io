@@ -59,8 +59,14 @@ export default function App() {
     if (pageId === 'super-admin') return isSuperAdmin;
     if (pageId === 'preferences') return true;
     if (!businessId) return false;
+
+    // Always allow users with a business workspace to open the Dashboard.
+    // If the trial/subscription has expired, paid modules remain locked,
+    // but the app no longer forces the Administrator onto Subscription.
+    if (pageId === 'dashboard') return true;
+
     if (role === 'administrator' && ['subscription', 'settings', 'users', 'activity'].includes(pageId)) return true;
-    if (!subscriptionActive) return pageId === 'subscription' && role === 'administrator';
+    if (!subscriptionActive) return false;
     return canAccessPage(role, pageId, accessPermissions, customPermissions) && planAllowsPage(planId, pageId);
   };
 
@@ -111,10 +117,10 @@ export default function App() {
 
   useEffect(() => {
     if (!businessId || !membership) return;
-    if (!subscriptionActive && role === 'administrator') {
-      if (!['subscription', 'settings', 'users', 'preferences', 'super-admin'].includes(page)) setPage('subscription');
-      return;
-    }
+
+    // Do not automatically redirect an Administrator to Subscription.
+    // Dashboard stays available even when a trial/subscription is inactive.
+    // If the current page is locked, return the user to Dashboard first.
     if (!can(page)) {
       const candidates = ['dashboard','invoices','quotes','attendance','payroll','customers','products','preferences'];
       setPage(candidates.find((candidate) => can(candidate)) || (role === 'administrator' ? 'subscription' : 'preferences'));
