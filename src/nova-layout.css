@@ -191,3 +191,59 @@ a,button{-webkit-tap-highlight-color:transparent}
 @media (prefers-reduced-motion:reduce){
   .stats-grid .stat-card,.enterprise-dashboard-stats .stat-card{animation:none}
 }
+
+/* =========================================================================
+   7. POS module — align the new v3.4 Point of Sale screen with Nova
+   ========================================================================= */
+.pos-hero{
+  border-radius:var(--r-lg);
+  border-color:var(--nova-border);
+  background:
+    radial-gradient(120% 200% at 0% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    var(--nova-surface);
+}
+.pos-hero h2{font-family:var(--font-display);font-weight:800;letter-spacing:-.03em}
+.pos-hero-total{
+  border-radius:var(--r-md);
+  border-color:color-mix(in srgb, var(--accent) 30%, var(--nova-border));
+  background:var(--nova-brand-gradient);
+}
+.pos-hero-total small,.pos-hero-total span{color:rgba(255,255,255,.75)}
+.pos-hero-total strong{color:#fff;font-family:var(--font-display)}
+
+.pos-product-card{
+  border-radius:var(--r-sm);
+  border-color:var(--nova-border);
+  transition:transform .2s var(--ease-spring), border-color .2s var(--ease), box-shadow .2s var(--ease);
+}
+.pos-product-card:hover:not(:disabled){
+  transform:translateY(-3px);
+  box-shadow:0 16px 34px -16px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.pos-product-card:active:not(:disabled){transform:translateY(-1px) scale(.98)}
+.pos-product-icon{
+  border-radius:11px;
+  background:var(--nova-brand-gradient);
+  box-shadow:0 8px 18px -8px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.pos-cart-row{border-radius:var(--r-sm);border-color:var(--nova-border);transition:border-color .2s var(--ease)}
+.pos-cart-row:hover{border-color:color-mix(in srgb, var(--accent) 28%, var(--nova-border))}
+.pos-qty button{border-radius:9px;transition:transform .15s var(--ease-spring)}
+.pos-qty button:active{transform:scale(.9)}
+
+.pos-empty-cart span{animation:novaFloat 4s ease-in-out infinite}
+
+.pos-grand-total strong{font-family:var(--font-display)}
+.pos-complete-button{position:relative}
+
+.pos-success-banner{
+  border-radius:var(--r-md);
+  border-color:color-mix(in srgb, var(--accent) 26%, var(--nova-border));
+  animation:novaRise .4s var(--ease);
+}
+.pos-success-banner>span{background:var(--nova-brand-gradient);box-shadow:0 8px 18px -8px color-mix(in srgb, var(--accent) 55%, transparent)}
+
+@media (min-width:981px){
+  .pos-cart-panel{top:100px}
+}
