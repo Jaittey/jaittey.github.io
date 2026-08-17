@@ -5,7 +5,6 @@ import './styles.css';
 import './df7-premium-ui.css';
 import './df7-premium-mobile.css';
 import './theme-nova.css';
-import './nova-layout.css';
 
 createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>);
 

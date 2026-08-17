@@ -13,6 +13,7 @@ export const normalizeRole = (role) => {
 
 export const MANAGER_FULL_PERMISSIONS = [
   'dashboard',
+  'pos',
   'quotes',
   'invoices',
   'billing',
@@ -39,6 +40,7 @@ export const MANAGER_FULL_PERMISSIONS = [
 ];
 
 export const USER_DEFAULT_PERMISSIONS = [
+  'pos',
   'quotes',
   'invoices',
   'customers',
@@ -64,9 +66,10 @@ export const PERMISSION_GROUPS = [
   },
   {
     id: 'sales',
-    label: 'Sales & Billing',
-    description: 'Quotations, invoices, recurring billing and payments.',
+    label: 'Sales & POS',
+    description: 'POS, quotations, invoices, recurring billing and payments.',
     pages: [
+      ['pos', 'POS System'],
       ['quotes', 'Quotations'],
       ['invoices', 'Invoices'],
       ['billing', 'Recurring Billing'],
@@ -170,6 +173,7 @@ export const getDefaultPage = (
   if (allowed.includes('*') || allowed.includes('dashboard')) return 'dashboard';
 
   return [
+    'pos',
     'invoices',
     'quotes',
     'attendance',
@@ -186,9 +190,10 @@ export const ERP_NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: '▦', page: 'dashboard' },
   {
     id: 'sales',
-    label: 'Sales & Billing',
+    label: 'Sales & POS',
     icon: '▤',
     children: [
+      ['pos', 'POS System'],
       ['quotes', 'Quotations'],
       ['invoices', 'Invoices'],
       ['billing', 'Recurring Billing'],

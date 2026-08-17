@@ -3,17 +3,17 @@ export const PLAN_IDS = { SILVER: 'SILVER', GOLD: 'GOLD', PLATINUM: 'PLATINUM' }
 export const PLAN_DEFINITIONS = {
   SILVER: {
     id: 'SILVER', name: 'VIP Silver', tagline: 'Essential sales workspace', level: 1,
-    pages: ['dashboard','quotes','invoices','customers','products','preferences'],
-    highlights: ['Quotations','Invoices','Customers','Inventory'],
+    pages: ['dashboard','pos','quotes','invoices','customers','products','preferences'],
+    highlights: ['POS System','Quotations','Invoices','Customers','Inventory'],
   },
   GOLD: {
     id: 'GOLD', name: 'VIP Gold', tagline: 'Operations and workforce', level: 2,
-    pages: ['dashboard','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','attendance','attendance-settings','products','suppliers','assets','preferences'],
+    pages: ['dashboard','pos','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','attendance','attendance-settings','products','suppliers','assets','preferences'],
     highlights: ['Everything in Silver','Sales & Billing','CRM','Employee Management','Payroll & Attendance','Inventory & Assets'],
   },
   PLATINUM: {
     id: 'PLATINUM', name: 'VIP Platinum', tagline: 'Complete Small Business Suite', level: 3,
-    pages: ['dashboard','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','attendance','attendance-settings','finance','expenses','budget','tax','products','suppliers','assets','reports','cloud','notifications','preferences'],
+    pages: ['dashboard','pos','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','attendance','attendance-settings','finance','expenses','budget','tax','products','suppliers','assets','reports','cloud','notifications','preferences'],
     highlights: ['Everything in Gold','Financial Management','Reports & Analytics','Cloud & Documents','Google Drive','Business Backup & Restore'],
   },
 };

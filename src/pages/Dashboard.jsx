@@ -34,6 +34,7 @@ export default function Dashboard({ invoices, expenses, products, customers, emp
   ];
 
   const managerActions = [
+    ['pos', '●', 'POS'],
     ['invoices', '▤', 'Invoices'],
     ['quotes', '◫', 'Quotations'],
     ['customers', '◎', 'Customers'],
@@ -41,7 +42,7 @@ export default function Dashboard({ invoices, expenses, products, customers, emp
     ['attendance', '◷', 'Attendance'],
     ['payroll', '▣', 'Payroll'],
   ];
-  const userActions = managerActions.slice(0, 4);
+  const userActions = managerActions.slice(0, 5);
   const actions = (normalizedRole === 'user' ? userActions : managerActions)
     .filter(([id]) => canAccessPage(role, id));
 

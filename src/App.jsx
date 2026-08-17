@@ -6,6 +6,7 @@ import ModuleHub from './components/ModuleHub';
 import Toast from './components/Toast';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
+import POS from './pages/POS';
 import Quotes from './pages/Quotes';
 import Products from './pages/Products';
 import Expenses from './pages/Expenses';
@@ -74,9 +75,9 @@ export default function App() {
   const attendanceSettings = useAttendanceSettings(authenticated && Boolean(businessId), businessId);
   const companyAssets = useCompanyAssets(authenticated && Boolean(businessId), businessId);
 
-  const invoices = useLiveCollection('invoices', 'createdAt', can('invoices'), businessId);
+  const invoices = useLiveCollection('invoices', 'createdAt', can('invoices') || can('pos'), businessId);
   const quotes = useLiveCollection('quotes', 'createdAt', can('quotes'), businessId);
-  const products = useLiveCollection('products', 'createdAt', can('products'), businessId);
+  const products = useLiveCollection('products', 'createdAt', can('products') || can('pos'), businessId);
   const expenses = useLiveCollection('expenses', 'createdAt', can('expenses'), businessId);
   const customers = useLiveCollection('customers', 'createdAt', can('customers'), businessId);
   const billingContracts = useLiveCollection('billingContracts', 'createdAt', can('billing'), businessId);
@@ -164,6 +165,7 @@ export default function App() {
     switch (page) {
       case 'subscription': return <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} user={user} role={role} notify={notify}/>;
       case 'super-admin': return <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={business} notify={notify}/>;
+      case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} settings={documentSettings} notify={notify}/>;
       case 'invoices': return <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected}/>;
       case 'quotes': return <Quotes quotes={quotes.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} openInvoices={()=>setPage('invoices')}/>;
       case 'billing': return <Billing contracts={billingContracts.items} customers={customers.items} {...common} openInvoices={()=>setPage('invoices')}/>;

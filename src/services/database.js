@@ -159,6 +159,18 @@ export async function saveBusinessSettings(data) {
   await upsertBusinessRecord('settings', 'business', data);
 }
 
+export async function completePosSale(invoice, payment) {
+  if (!Array.isArray(invoice?.items) || !invoice.items.length) throw new Error('Add at least one POS item.');
+  const { data, error } = await supabase.rpc('sb_complete_pos_sale', {
+    p_business_id: requireActiveBusinessId(),
+    p_invoice: cleanUndefined(invoice),
+    p_payment: cleanUndefined(payment || {}),
+  });
+  throwIfError(error, 'Could not complete POS sale.');
+  await writeActivity('COMPLETE POS SALE', 'invoices', data?.invoiceId || invoice.invoiceNumber || 'POS');
+  return data || {};
+}
+
 export async function saveInvoiceWithStock(invoice, invoiceId = null) {
   const { data, error } = await supabase.rpc('sb_save_invoice_with_stock', {
     p_business_id: requireActiveBusinessId(),

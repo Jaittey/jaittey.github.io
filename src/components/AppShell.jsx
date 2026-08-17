@@ -3,6 +3,7 @@ import { ERP_NAV, PAGE_TITLES, ROLE_LABELS, normalizeRole } from '../config/erp'
 
 const MOBILE_NAV_CANDIDATES = [
   ['dashboard','⌂','Home'],
+  ['pos','●','POS'],
   ['invoices','▤','Invoices'],
   ['quotes','▧','Quotes'],
   ['attendance','◷','Attendance'],
