@@ -57,7 +57,7 @@ export default function App() {
 
   const can = (pageId) => {
     if (!authenticated) return false;
-    if (pageId === 'super-admin') return isSuperAdmin;
+    if (pageId === 'super-admin' || pageId.startsWith('super-')) return isSuperAdmin;
     if (pageId === 'preferences') return true;
     if (!businessId) return false;
 
@@ -65,6 +65,16 @@ export default function App() {
     // If the trial/subscription has expired, paid modules remain locked,
     // but the app no longer forces the Administrator onto Subscription.
     if (pageId === 'dashboard') return true;
+
+    const hubChildren = {
+      'sales-dashboard': ['pos','invoices','quotes','billing','payments','customers','inventory-assets','contracts','statements'],
+      'employee-dashboard': ['employees','hr-records','attendance','attendance-settings','payroll','final-settlements'],
+      'financial-dashboard': ['finance','payments','expenses','budget','tax'],
+      'app-manager': ['settings','users','reports','cloud','activity','preferences','subscription'],
+      'inventory-assets': ['products','suppliers','assets'],
+      'final-settlements': ['payroll'],
+    };
+    if (hubChildren[pageId]) return hubChildren[pageId].some((child) => can(child));
 
     if (role === 'administrator' && ['subscription', 'settings', 'users', 'activity'].includes(pageId)) return true;
     if (!subscriptionActive) return false;
@@ -163,8 +173,60 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
+      case 'sales-dashboard': return hub('SALES & POS','Sales & POS Dashboard','Everything related to selling, billing, customers and stock in one workspace.',[
+        {title:'POS System',icon:'▣',description:'Fast counter sales with stock deduction and paid receipts.',features:['Barcode / SKU search','Cash, card & bank transfer','Automatic stock update','Paid invoice & payment record'],ready:true,page:'pos'},
+        {title:'Invoices',icon:'▤',description:'Create and manage customer invoices.',features:['PDF / print','Paid status','Company branding'],ready:true,page:'invoices'},
+        {title:'Quotations',icon:'▧',description:'Prepare quotations and convert sales into invoices.',features:['Customer selection','Items & GST','PDF / print'],ready:true,page:'quotes'},
+        {title:'Recurring Billing',icon:'↻',description:'Manage repeat service contracts and monthly billing.',features:['Service periods','Monthly generation','Duplicate protection'],ready:true,page:'billing'},
+        {title:'Payments',icon:'↘',description:'Review payment records and received amounts.',features:['Invoice references','Payment methods','Outstanding balances'],ready:true,page:'payments'},
+        {title:'Customers',icon:'◎',description:'Customer profiles, contact details and sales history.',features:['Contact details','Notes','Invoice history'],ready:true,page:'customers'},
+        {title:'Inventory & Assets',icon:'□',description:'Open stock, suppliers and company asset tools.',features:['Inventory','Suppliers','Company assets'],ready:true,page:'inventory-assets'},
+        {title:'Contracts',icon:'⌁',description:'Recurring agreements and renewal workflows.',features:['Contract dates','Recurring billing','Renewal alerts'],ready:true,page:'contracts'},
+        {title:'Customer Statements',icon:'≡',description:'Payment and invoice history by customer.',features:['Payments','Invoices','Balances'],ready:true,page:'statements'},
+      ]);
+      case 'employee-dashboard': return hub('EMPLOYEE MANAGEMENT','Employee Management Dashboard','Manage the complete employee lifecycle, attendance and salary workflow.',[
+        {title:'Employees',icon:'♙',description:'Employee profiles, employment details and payroll setup.',features:['Personal details','Employment details','Payroll method'],ready:true,page:'employees'},
+        {title:'HR Records',icon:'♟',description:'Employee history and HR records.',features:['Profiles','Promotions & transfers framework','Notes'],ready:true,page:'hr-records'},
+        {title:'Attendance',icon:'◷',description:'Monthly attendance calendar and daily work hours.',features:['Shifts','Hours','Missing dates'],ready:true,page:'attendance'},
+        {title:'Attendance Settings',icon:'⚙',description:'Configure shifts and default duty times.',features:['Shift types','Start / end times','Custom shifts'],ready:true,page:'attendance-settings'},
+        {title:'Payroll',icon:'▣',description:'Calculate salary, overtime and deductions.',features:['Monthly & daily pay','Salary slips','Lock / unlock'],ready:true,page:'payroll'},
+        {title:'Final Settlements',icon:'✓',description:'Complete employee final-pay and settlement records.',features:['Last working date','Attendance summary','Settlement calculation'],ready:true,page:'final-settlements'},
+      ]);
+      case 'financial-dashboard': return hub('FINANCIAL MANAGEMENT','Financial Management Dashboard','Monitor income, spending, budgets and tax from one finance workspace.',[
+        {title:'Finance Overview',icon:'◈',description:'Open the finance overview and controls.',features:['Income','Expenses','Budget'],ready:true,page:'finance'},
+        {title:'Income & Payments',icon:'↗',description:'Review received payments and income records.',features:['Invoice revenue','Payment history','Outstanding balances'],ready:true,page:'payments'},
+        {title:'Expenses',icon:'↘',description:'Track operating expenses by category.',features:['Office','Transport','Utilities','Maintenance'],ready:true,page:'expenses'},
+        {title:'Budget',icon:'◫',description:'Plan and monitor annual and monthly budgets.',features:['Planned','Actual','Remaining'],ready:true,page:'budget'},
+        {title:'GST & Tax',icon:'%',description:'GST settings and tax-ready reporting.',features:['TIN','GST rate','GST report'],ready:true,page:'tax'},
+      ]);
+      case 'app-manager': return hub('APPLICATION MANAGER','Application Manager','Control company setup, users, reporting, cloud, preferences and subscription.',[
+        {title:'Company Administration',icon:'♜',description:'Company details, document assets, GST, backup and system controls.',features:['Logo & stamp','Manager signature','Company settings','Backup / restore'],ready:true,page:'settings'},
+        {title:'Users & Permissions',icon:'♚',description:'Manage company users, roles and access permissions.',features:['Administrator','Manager','User','Custom permissions'],ready:true,page:'users'},
+        {title:'Reports & Analytics',icon:'⌁',description:'Business, sales, payroll and attendance reports.',features:['Invoices','Payroll','Attendance','Inventory'],ready:true,page:'reports'},
+        {title:'Cloud & Documents',icon:'☁',description:'Google Drive connection and document workspace.',features:['Invoices','Quotations','Payroll','Contracts'],ready:true,page:'cloud'},
+        {title:'Activity Logs',icon:'≡',description:'Review company-level system activity.',features:['Audit activity','User actions','Operational history'],ready:true,page:'activity'},
+        {title:'User Preferences / Themes',icon:'◈',description:'Personalize the application appearance.',features:['Light','Dark','Ocean','Forest','Royal','Sunset'],ready:true,page:'preferences'},
+        {title:'Subscription & Trial',icon:'★',description:'Manage trial, package and subscription payments.',features:['7-day trial','Plans','Bank transfer','Transfer slip'],ready:true,page:'subscription'},
+      ]);
+      case 'inventory-assets': return hub('SALES & POS','Inventory & Assets','Manage products and open supplier or company asset workspaces.',[
+        {title:'Inventory',icon:'□',description:'Products, stock levels, prices and SKU / barcodes.',features:['Stock','Price','SKU / Barcode','Low-stock level'],ready:true,page:'products'},
+        {title:'Suppliers',icon:'◎',description:'Supplier directory and purchase history framework.',features:['Supplier details','Purchases','Notes'],ready:false,page:'suppliers'},
+        {title:'Company Assets',icon:'◇',description:'Company asset register and assignment framework.',features:['Asset number','Condition','Assignment','Maintenance'],ready:false,page:'assets'},
+      ]);
+      case 'final-settlements': return <Payroll payroll={payroll.items} salarySlips={salarySlips.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialEmployee={null} clearInitialEmployee={()=>{}} initialFinalEmployee={null} clearInitialFinalEmployee={()=>{}}/>;
       case 'subscription': return <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} user={user} role={role} notify={notify}/>;
-      case 'super-admin': return <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={business} notify={notify}/>;
+      case 'super-admin':
+      case 'super-businesses':
+      case 'super-users':
+      case 'super-requests':
+      case 'super-payments':
+      case 'super-plans':
+      case 'super-offers':
+      case 'super-banks':
+      case 'super-verification': {
+        const superTabs = { 'super-businesses':'subscribers', 'super-users':'users', 'super-requests':'verification', 'super-payments':'payments', 'super-plans':'plans', 'super-offers':'offers', 'super-banks':'banks', 'super-verification':'verification' };
+        return <SuperAdmin initialTab={superTabs[page]||'verification'} businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={business} notify={notify}/>;
+      }
       case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} settings={documentSettings} notify={notify}/>;
       case 'invoices': return <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected}/>;
       case 'quotes': return <Quotes quotes={quotes.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} openInvoices={()=>setPage('invoices')}/>;

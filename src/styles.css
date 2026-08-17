@@ -2119,3 +2119,30 @@ body.sb-mobile-drawer-open{
 @media(max-width:1100px){.pos-layout{grid-template-columns:1fr}.pos-cart-panel{position:static}.pos-product-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}}
 @media(max-width:700px){.pos-hero{align-items:stretch;flex-direction:column;padding:17px}.pos-hero-total{text-align:left;min-width:0}.pos-panel-heading{align-items:stretch;flex-direction:column}.pos-search{min-width:0;width:100%}.pos-product-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pos-product-card{min-height:145px;padding:12px}.pos-checkout-fields{grid-template-columns:1fr}.pos-checkout-fields label:first-child{grid-column:auto}.pos-cart-items{max-height:none}.pos-success-banner{grid-template-columns:38px minmax(0,1fr)}.pos-success-banner button{grid-column:2;justify-self:start;padding:0}.pos-recent-panel .panel-heading{align-items:stretch;flex-direction:column}.pos-recent-panel .panel-heading .button{width:100%}}
 @media(max-width:380px){.pos-product-grid{grid-template-columns:1fr}.pos-qty{grid-template-columns:40px 64px 40px}}
+
+
+/* ==========================================================
+   Small Business v3.5 — Functional dashboard architecture
+   ========================================================== */
+.architecture-nav{gap:5px!important}
+.architecture-nav-group{margin:0!important}
+.architecture-nav-heading{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:4px;align-items:center}
+.architecture-nav-heading .nav-group-main{min-width:0;min-height:46px;width:100%;display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:9px;padding:0 12px;border:0;border-radius:13px;background:transparent;color:var(--muted);text-align:left;font-weight:750}
+.architecture-nav-heading .nav-group-main span{text-align:center;color:var(--soft);font-size:17px}
+.architecture-nav-heading .nav-group-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.architecture-nav-heading .nav-group-main:hover,.architecture-nav-heading .nav-group-main.active,.architecture-nav-group.active-group>.architecture-nav-heading .nav-group-main{background:linear-gradient(90deg,rgba(101,221,176,.13),rgba(101,221,176,.035));color:var(--text)}
+.architecture-nav-heading .nav-group-main.active{color:var(--accent);box-shadow:inset 0 0 0 1px rgba(101,221,176,.14)}
+.nav-group-expand{width:38px;height:38px;border:1px solid var(--border);border-radius:11px;background:var(--panel);color:var(--soft);font-size:16px}
+.architecture-nav .nav-children{margin:4px 0 9px 39px!important;padding-left:10px!important}
+.architecture-nav .nav-children button{min-height:37px!important}
+.architecture-layout .module-card-grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.architecture-layout .module-card{min-height:230px}
+.architecture-layout .module-card>.button{margin-top:auto}
+.architecture-layout .module-hero{background:linear-gradient(135deg,var(--panel-strong),var(--panel));position:relative;overflow:hidden}
+.architecture-layout .module-hero::after{content:'';position:absolute;right:-70px;top:-90px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(101,221,176,.12),transparent 68%);pointer-events:none}
+@media(max-width:900px){
+  .architecture-nav-heading{grid-template-columns:minmax(0,1fr) 42px}
+  .architecture-nav-heading .nav-group-main{min-height:50px}
+  .nav-group-expand{width:42px;height:42px}
+  .architecture-layout .module-card{min-height:0}
+}

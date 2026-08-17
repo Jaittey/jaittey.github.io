@@ -13,6 +13,12 @@ export const normalizeRole = (role) => {
 
 export const MANAGER_FULL_PERMISSIONS = [
   'dashboard',
+  'sales-dashboard',
+  'employee-dashboard',
+  'financial-dashboard',
+  'app-manager',
+  'inventory-assets',
+  'final-settlements',
   'pos',
   'quotes',
   'invoices',
@@ -40,6 +46,10 @@ export const MANAGER_FULL_PERMISSIONS = [
 ];
 
 export const USER_DEFAULT_PERMISSIONS = [
+  'sales-dashboard',
+  'employee-dashboard',
+  'inventory-assets',
+  'final-settlements',
   'pos',
   'quotes',
   'invoices',
@@ -59,82 +69,41 @@ export const DEFAULT_ROLE_PERMISSIONS = {
 
 export const PERMISSION_GROUPS = [
   {
-    id: 'dashboard',
-    label: 'Dashboard',
-    description: 'Business overview and operational summaries.',
-    pages: [['dashboard', 'Dashboard']],
+    id: 'main-dashboard',
+    label: 'Main Dashboard',
+    description: 'Business overview, quick actions and notifications.',
+    pages: [['dashboard', 'Business Overview'], ['notifications', 'Notifications']],
   },
   {
-    id: 'sales',
-    label: 'Sales & POS',
-    description: 'POS, quotations, invoices, recurring billing and payments.',
+    id: 'sales-pos',
+    label: 'Sales & POS Dashboard',
+    description: 'POS, sales documents, customers, stock and contracts.',
     pages: [
-      ['pos', 'POS System'],
-      ['quotes', 'Quotations'],
-      ['invoices', 'Invoices'],
-      ['billing', 'Recurring Billing'],
-      ['payments', 'Payments'],
+      ['pos', 'POS System'], ['invoices', 'Invoices'], ['quotes', 'Quotations'],
+      ['billing', 'Recurring Billing'], ['payments', 'Payments'], ['customers', 'Customers'],
+      ['products', 'Inventory & Assets'], ['contracts', 'Contracts'], ['statements', 'Customer Statements'],
     ],
   },
   {
-    id: 'crm',
-    label: 'CRM',
-    description: 'Customers, contracts and statements.',
+    id: 'employee-management',
+    label: 'Employee Management Dashboard',
+    description: 'Employees, HR, attendance, payroll and settlements.',
     pages: [
-      ['customers', 'Customers'],
-      ['contracts', 'Contracts'],
-      ['statements', 'Statements'],
+      ['employees', 'Employees'], ['hr-records', 'HR Records'], ['attendance', 'Attendance'],
+      ['attendance-settings', 'Attendance Settings'], ['payroll', 'Payroll'], ['final-settlements', 'Final Settlements'],
     ],
   },
   {
-    id: 'employees',
-    label: 'Employee Management',
-    description: 'Employee profiles and HR history.',
-    pages: [
-      ['employees', 'Employees'],
-      ['hr-records', 'HR Records'],
-    ],
+    id: 'financial-management',
+    label: 'Financial Management Dashboard',
+    description: 'Finance overview, income, expenses, budgets and GST.',
+    pages: [['finance', 'Finance Overview'], ['payments', 'Income & Payments'], ['expenses', 'Expenses'], ['budget', 'Budget'], ['tax', 'GST & Tax']],
   },
   {
-    id: 'payroll',
-    label: 'Payroll & Attendance',
-    description: 'Attendance, shifts, payroll and salary slips.',
-    pages: [
-      ['payroll', 'Payroll'],
-      ['attendance', 'Attendance'],
-      ['attendance-settings', 'Attendance Settings'],
-    ],
-  },
-  {
-    id: 'finance',
-    label: 'Financial Management',
-    description: 'Finance overview, expenses, budgets and tax reports.',
-    pages: [
-      ['finance', 'Finance Overview'],
-      ['expenses', 'Expenses'],
-      ['budget', 'Budget'],
-      ['tax', 'GST & Tax'],
-    ],
-  },
-  {
-    id: 'inventory',
-    label: 'Inventory & Assets',
-    description: 'Inventory, suppliers and company assets.',
-    pages: [
-      ['products', 'Inventory'],
-      ['suppliers', 'Suppliers'],
-      ['assets', 'Company Assets'],
-    ],
-  },
-  {
-    id: 'insights',
-    label: 'Reports & Cloud',
-    description: 'Reports, documents and operational notifications.',
-    pages: [
-      ['reports', 'Reports & Analytics'],
-      ['cloud', 'Cloud & Documents'],
-      ['notifications', 'Notifications'],
-    ],
+    id: 'application-manager',
+    label: 'Application Manager',
+    description: 'Company administration, users, reports, cloud, activity and subscription.',
+    pages: [['settings', 'Company Administration'], ['users', 'Users & Permissions'], ['reports', 'Reports & Analytics'], ['cloud', 'Cloud & Documents'], ['activity', 'Activity Logs'], ['preferences', 'User Preferences / Themes'], ['subscription', 'Subscription & Trial']],
   },
 ];
 
@@ -187,89 +156,56 @@ export const getDefaultPage = (
 };
 
 export const ERP_NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: '▦', page: 'dashboard' },
   {
-    id: 'sales',
-    label: 'Sales & POS',
-    icon: '▤',
+    id: 'main-dashboard', label: 'Main Dashboard', icon: '▦', hubPage: 'dashboard',
+    children: [['notifications', 'Notifications']],
+  },
+  {
+    id: 'sales-pos-dashboard', label: 'Sales & POS Dashboard', icon: '▤', hubPage: 'sales-dashboard',
     children: [
-      ['pos', 'POS System'],
-      ['quotes', 'Quotations'],
-      ['invoices', 'Invoices'],
-      ['billing', 'Recurring Billing'],
-      ['payments', 'Payments'],
+      ['pos', 'POS System'], ['invoices', 'Invoices'], ['quotes', 'Quotations'],
+      ['billing', 'Recurring Billing'], ['payments', 'Payments'], ['customers', 'Customers'],
+      ['inventory-assets', 'Inventory & Assets'], ['contracts', 'Contracts'], ['statements', 'Customer Statements'],
     ],
   },
   {
-    id: 'crm',
-    label: 'CRM',
-    icon: '◎',
+    id: 'employee-dashboard', label: 'Employee Management Dashboard', icon: '♙', hubPage: 'employee-dashboard',
     children: [
-      ['customers', 'Customers'],
-      ['contracts', 'Contracts'],
-      ['statements', 'Statements'],
+      ['employees', 'Employees'], ['hr-records', 'HR Records'], ['attendance', 'Attendance'],
+      ['attendance-settings', 'Attendance Settings'], ['payroll', 'Payroll'], ['final-settlements', 'Final Settlements'],
     ],
   },
   {
-    id: 'hr',
-    label: 'Employee Management',
-    icon: '♙',
+    id: 'financial-dashboard', label: 'Financial Management Dashboard', icon: '◈', hubPage: 'financial-dashboard',
     children: [
-      ['employees', 'Employees'],
-      ['hr-records', 'HR Records'],
+      ['finance', 'Finance Overview'], ['payments', 'Income & Payments'], ['expenses', 'Expenses'],
+      ['budget', 'Budget'], ['tax', 'GST & Tax'],
     ],
   },
   {
-    id: 'payroll-group',
-    label: 'Payroll & Attendance',
-    icon: '▣',
+    id: 'application-manager', label: 'Application Manager', icon: '⚙', hubPage: 'app-manager',
     children: [
-      ['payroll', 'Payroll'],
-      ['attendance', 'Attendance'],
-      ['attendance-settings', 'Attendance Settings'],
+      ['settings', 'Company Administration'], ['users', 'Users & Permissions'], ['reports', 'Reports & Analytics'],
+      ['cloud', 'Cloud & Documents'], ['activity', 'Activity Logs'], ['preferences', 'User Preferences / Themes'],
+      ['subscription', 'Subscription & Trial'],
     ],
   },
   {
-    id: 'finance-group',
-    label: 'Financial Management',
-    icon: '◈',
+    id: 'super-admin', label: 'Super Admin', icon: '♦', hubPage: 'super-admin', superAdminOnly: true,
     children: [
-      ['finance', 'Finance Overview'],
-      ['expenses', 'Expenses'],
-      ['budget', 'Budget'],
-      ['tax', 'GST & Tax'],
+      ['super-businesses', 'Businesses'], ['super-users', 'Platform Users'], ['super-requests', 'Subscription Requests'],
+      ['super-payments', 'Subscription Payments'], ['super-plans', 'Plans'], ['super-offers', 'Custom Offers'],
+      ['super-banks', 'Bank Accounts'], ['super-verification', 'Payment Verification'],
     ],
   },
-  {
-    id: 'inventory-group',
-    label: 'Inventory & Assets',
-    icon: '□',
-    children: [
-      ['products', 'Inventory'],
-      ['suppliers', 'Suppliers'],
-      ['assets', 'Company Assets'],
-    ],
-  },
-  { id: 'reports-group', label: 'Reports & Analytics', icon: '⌁', page: 'reports' },
-  { id: 'cloud-group', label: 'Cloud & Documents', icon: '☁', page: 'cloud' },
-  { id: 'notifications-group', label: 'Notifications', icon: '●', page: 'notifications' },
-  { id: 'subscription-group', label: 'Subscription', icon: '★', page: 'subscription' },
-  { id: 'preferences-group', label: 'Settings', icon: '⚙', page: 'preferences' },
-  {
-    id: 'admin-group',
-    label: 'Administration',
-    icon: '♜',
-    children: [
-      ['settings', 'Company & System'],
-      ['activity', 'Activity Logs'],
-    ],
-  },
-  { id: 'users-group', label: 'Company Users', icon: '♚', page: 'users' },
-  { id: 'super-admin-group', label: 'Super Admin', icon: '♦', page: 'super-admin' },
 ];
 
-export const PAGE_TITLES = Object.fromEntries(
-  ERP_NAV.flatMap((group) => (
-    group.page ? [[group.page, group.label]] : group.children || []
-  )),
-);
+export const PAGE_TITLES = {
+  dashboard: 'Main Dashboard', notifications: 'Notifications',
+  'sales-dashboard': 'Sales & POS Dashboard', pos: 'POS System', invoices: 'Invoices', quotes: 'Quotations', billing: 'Recurring Billing', payments: 'Payments', customers: 'Customers', 'inventory-assets': 'Inventory & Assets', contracts: 'Contracts', statements: 'Customer Statements',
+  'employee-dashboard': 'Employee Management Dashboard', employees: 'Employees', 'hr-records': 'HR Records', attendance: 'Attendance', 'attendance-settings': 'Attendance Settings', payroll: 'Payroll', 'final-settlements': 'Final Settlements',
+  'financial-dashboard': 'Financial Management Dashboard', finance: 'Finance Overview', expenses: 'Expenses', budget: 'Budget', tax: 'GST & Tax',
+  'app-manager': 'Application Manager', settings: 'Company Administration', users: 'Users & Permissions', reports: 'Reports & Analytics', cloud: 'Cloud & Documents', activity: 'Activity Logs', preferences: 'User Preferences / Themes', subscription: 'Subscription & Trial',
+  'super-admin': 'Super Admin', 'super-businesses': 'Businesses', 'super-users': 'Platform Users', 'super-requests': 'Subscription Requests', 'super-payments': 'Subscription Payments', 'super-plans': 'Plans', 'super-offers': 'Custom Offers', 'super-banks': 'Bank Accounts', 'super-verification': 'Payment Verification',
+};
+

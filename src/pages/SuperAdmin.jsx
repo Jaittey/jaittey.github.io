@@ -66,8 +66,10 @@ export default function SuperAdmin({
   bankAccounts,
   customOffers = [],
   notify,
+  initialTab = 'verification',
 }) {
-  const [tab, setTab] = useState('verification');
+  const [tab, setTab] = useState(initialTab);
+  useEffect(() => { setTab(initialTab); }, [initialTab]);
   const [review, setReview] = useState(null);
   const [reviewAction, setReviewAction] = useState('approve');
   const [reviewForm, setReviewForm] = useState({ notes: '', startsAt: '', endsAt: '' });
@@ -201,8 +203,8 @@ export default function SuperAdmin({
 
       <nav className="settings-tabs super-admin-tabs">
         {[
-          ['verification', 'Verification Queue'],
-          ['subscribers', 'Subscribers'],
+          ['verification', 'Payment Verification'],
+          ['subscribers', 'Businesses'],
           ['payments', 'Payments'],
           ['plans', 'Packages'],
           ['offers', 'Custom Offers'],
