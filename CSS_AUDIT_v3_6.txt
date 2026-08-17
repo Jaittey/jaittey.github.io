@@ -1,0 +1,51 @@
+Small Business v3.6 CSS Audit
+=============================
+
+Previous CSS loading order:
+- styles.css
+- df7-premium-ui.css
+- df7-premium-mobile.css
+- theme-nova.css
+
+Problem:
+Multiple files redefined the same layout and theme selectors. The project had several generations of UI overrides active at the same time. This made source-order rather than component intent decide the final layout.
+
+Removed:
+- src/df7-premium-ui.css
+- src/df7-premium-mobile.css
+- src/theme-nova.css
+
+New loading order:
+- src/styles.css          (legacy/component behavior)
+- src/themes.css          (single theme token source)
+- src/ui-system.css       (single final layout/responsive source)
+
+Key selectors normalized in ui-system.css:
+- .enterprise-sidebar
+- .main-area
+- .enterprise-topbar
+- .enterprise-content
+- .panel
+- .module-card-grid
+- .module-card
+- .module-card-heading
+- .pos-layout
+- .pos-cart-panel
+- .pos-product-grid
+- .responsive-table
+- .mobile-bottom-nav
+- mobile navigation drawer
+
+Theme variables centralized in themes.css:
+- --bg / --bg-rgb
+- --text
+- --surface
+- --panel / --panel-strong
+- --input / --border
+- --muted / --soft
+- --accent / --accent-2
+- --danger / --warning / --success
+- --shadow
+
+Note:
+styles.css still contains older component-specific responsive declarations. They are retained to avoid breaking specialized pages such as Attendance and Payroll. The final application-wide layout is intentionally controlled by ui-system.css, which is loaded last. New UI changes should be made in ui-system.css or themes.css instead of adding another override stylesheet.

@@ -120,10 +120,34 @@ export default function App() {
   const [payrollEmployee, setPayrollEmployee] = useState(null);
   const [finalSettlementEmployee, setFinalSettlementEmployee] = useState(null);
   const [showBusinessRegistration, setShowBusinessRegistration] = useState(false);
+  const DEFAULT_CUSTOM_THEME = { background:'#111827', surface:'#1f2937', accent:'#8b5cf6', accent2:'#3b82f6', text:'#f7f7fb' };
   const [theme, setThemeState] = useState(() => normalizeTheme(localStorage.getItem('sb-theme') || 'royal'));
+  const [customTheme, setCustomTheme] = useState(() => {
+    try { return { ...DEFAULT_CUSTOM_THEME, ...JSON.parse(localStorage.getItem('sb-custom-theme') || '{}') }; }
+    catch { return DEFAULT_CUSTOM_THEME; }
+  });
   const setTheme = (nextTheme) => setThemeState(normalizeTheme(nextTheme));
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('sb-theme', theme); }, [theme]);
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    localStorage.setItem('sb-theme', theme);
+    if (theme === 'custom') {
+      const hexRgb = (hex) => {
+        const value = String(hex || '').replace('#','');
+        const full = value.length === 3 ? value.split('').map((c)=>c+c).join('') : value;
+        const number = Number.parseInt(full,16);
+        return Number.isFinite(number) ? `${(number>>16)&255},${(number>>8)&255},${number&255}` : '17,24,39';
+      };
+      root.style.setProperty('--custom-bg', customTheme.background);
+      root.style.setProperty('--custom-bg-rgb', hexRgb(customTheme.background));
+      root.style.setProperty('--custom-surface', customTheme.surface);
+      root.style.setProperty('--custom-accent', customTheme.accent);
+      root.style.setProperty('--custom-accent-2', customTheme.accent2);
+      root.style.setProperty('--custom-text', customTheme.text);
+    }
+    localStorage.setItem('sb-custom-theme', JSON.stringify(customTheme));
+  }, [theme, customTheme]);
   useEffect(() => { if (!toast.message) return undefined; const timer = setTimeout(() => setToast({ message: '', type: 'success' }), 3800); return () => clearTimeout(timer); }, [toast]);
 
   useEffect(() => {
@@ -266,7 +290,7 @@ export default function App() {
       case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} attendance={attendance.items} finalSettlements={finalSettlements.items} products={products.items} settings={documentSettings}/>;
       case 'cloud': return <CloudDocuments driveConnected={driveConnected||isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} counts={{invoices:invoices.items.length,quotes:quotes.items.length,payroll:payroll.items.length,contracts:billingContracts.items.length}}/>;
       case 'notifications': return <Notifications invoices={invoices.items} products={products.items} payroll={payroll.items} budgets={budgets.items} billingContracts={billingContracts.items}/>;
-      case 'preferences': return <UserPreferences theme={theme} setTheme={setTheme}/>;
+      case 'preferences': return <UserPreferences theme={theme} setTheme={setTheme} customTheme={customTheme} setCustomTheme={setCustomTheme}/>;
       case 'settings': return <Settings settings={settings} companyAssets={companyAssets} notify={notify} driveConnected={driveConnected||isDriveConnected()} markDriveConnected={setDriveConnected} planId={planId}/>;
       case 'activity': return <ActivityLogs logs={activityLogs.items}/>;
       case 'users': return <UserManagement users={users.items} notify={notify}/>;

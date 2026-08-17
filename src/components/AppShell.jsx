@@ -63,7 +63,7 @@ export default function AppShell({
   return <div className="app-layout v21-layout v219-layout v300-layout architecture-layout">
     <aside className={`sidebar enterprise-sidebar mobile-navigation-drawer ${drawerOpen?'mobile-open':''}`}>
       <div className="mobile-drawer-heading"><div><small>SMALL BUSINESS</small><strong>Application Modules</strong></div><button type="button" aria-label="Close navigation" onClick={()=>setDrawerOpen(false)}>×</button></div>
-      <div className="sidebar-brand"><div className="sidebar-logo-surface"><img className="sidebar-company-logo" src={companyLogo||`${import.meta.env.BASE_URL}images/SB_Logo.png`} alt="Small Business"/></div><span className="sidebar-business-name">{businessName||'Business Workspace'}</span><small className="version-pill">v3.5 · NEW ARCHITECTURE</small></div>
+      <div className="sidebar-brand"><div className="sidebar-logo-surface"><img className="sidebar-company-logo" src={companyLogo||`${import.meta.env.BASE_URL}images/SB_Logo.png`} alt="Small Business"/></div><span className="sidebar-business-name">{businessName||'Business Workspace'}</span><small className="version-pill">v3.6 · CLEAN UI</small></div>
       <div className="sidebar-module-search"><span>⌕</span><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Find a module"/></div>
       {searchResults.length>0&&<div className="sidebar-search-results">{searchResults.map(([id,label])=><button key={id} onClick={()=>navigate(id)}>{label}</button>)}</div>}
       <nav className="sidebar-nav enterprise-nav architecture-nav">{renderNav()}</nav>

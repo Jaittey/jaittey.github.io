@@ -1,7 +1,7 @@
 {
-  "name": "small-business-sb-v3-3-payment-trial-offers",
+  "name": "small-business-v3-6-clean-ui",
   "private": true,
-  "version": "3.3.0",
+  "version": "3.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

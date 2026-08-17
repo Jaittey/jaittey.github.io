@@ -30,6 +30,12 @@ export const THEMES = [
     preview: ['#07130f', '#10251d', '#d7b55a'],
   },
   {
+    id: 'custom',
+    name: 'Custom',
+    description: 'Build your own workspace colors and save them on this device.',
+    preview: ['#111827', '#1f2937', '#8b5cf6'],
+  },
+  {
     id: 'sunset',
     name: 'Sunset',
     description: 'Warm graphite with coral and amber.',

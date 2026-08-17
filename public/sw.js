@@ -1,4 +1,4 @@
-const CACHE = 'sb-shell-v350-functional-architecture';
+const CACHE = 'sb-shell-v360-clean-ui';
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.png', '/images/SB_Logo.png', '/images/PAID.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));

@@ -1,0 +1,174 @@
+/* ==========================================================
+   Small Business v3.6 — single theme source
+   Theme variables live here to avoid duplicate theme blocks
+   across multiple UI files.
+   ========================================================== */
+
+:root,
+[data-theme="dark"]{
+  color:#eef4ff;
+  background:#090d16;
+  --bg:#090d16;
+  --bg-rgb:9,13,22;
+  --text:#eef4ff;
+  --surface:#101827;
+  --panel:rgba(255,255,255,.045);
+  --panel-strong:rgba(255,255,255,.075);
+  --input:rgba(255,255,255,.045);
+  --border:rgba(157,176,211,.14);
+  --muted:rgba(232,239,250,.64);
+  --soft:rgba(232,239,250,.40);
+  --accent:#7b8cff;
+  --accent-2:#9b63e8;
+  --danger:#ff7f8f;
+  --warning:#f4c96b;
+  --success:#65ddb0;
+  --shadow:0 22px 64px rgba(0,0,0,.30);
+  --logo-surface:linear-gradient(145deg,#fffdf7,#e8dfcb);
+  --logo-border:rgba(123,140,255,.28);
+  color-scheme:dark;
+}
+
+[data-theme="royal"]{
+  color:#f7f5ff;
+  background:#0d0d23;
+  --bg:#0d0d23;
+  --bg-rgb:13,13,35;
+  --text:#f7f5ff;
+  --surface:#17172f;
+  --panel:rgba(149,123,255,.055);
+  --panel-strong:rgba(149,123,255,.095);
+  --input:rgba(255,255,255,.052);
+  --border:rgba(167,149,255,.20);
+  --muted:rgba(244,241,255,.66);
+  --soft:rgba(244,241,255,.43);
+  --accent:#9b7cff;
+  --accent-2:#c15cff;
+  --danger:#ff7c9f;
+  --warning:#f2c86b;
+  --success:#65ddb0;
+  --shadow:0 24px 70px rgba(4,2,18,.38);
+  --logo-surface:linear-gradient(145deg,#fffdf9,#e8dfcb);
+  --logo-border:rgba(155,124,255,.34);
+  color-scheme:dark;
+}
+
+[data-theme="light"]{
+  color:#182231;
+  background:#f3f6fa;
+  --bg:#f3f6fa;
+  --bg-rgb:243,246,250;
+  --text:#182231;
+  --surface:#ffffff;
+  --panel:rgba(255,255,255,.82);
+  --panel-strong:#ffffff;
+  --input:#f7f9fc;
+  --border:rgba(24,34,49,.11);
+  --muted:rgba(24,34,49,.64);
+  --soft:rgba(24,34,49,.44);
+  --accent:#4965e8;
+  --accent-2:#7b54dd;
+  --danger:#c94a58;
+  --warning:#a36b00;
+  --success:#19865f;
+  --shadow:0 18px 48px rgba(35,49,71,.11);
+  --logo-surface:linear-gradient(145deg,#fffefb,#eee8dc);
+  --logo-border:rgba(73,101,232,.18);
+  color-scheme:light;
+}
+
+[data-theme="ocean"]{
+  color:#edfaff;
+  background:#071522;
+  --bg:#071522;
+  --bg-rgb:7,21,34;
+  --text:#edfaff;
+  --surface:#0d2435;
+  --panel:rgba(85,190,224,.055);
+  --panel-strong:rgba(85,190,224,.095);
+  --input:rgba(255,255,255,.055);
+  --border:rgba(113,213,239,.15);
+  --muted:rgba(237,250,255,.65);
+  --soft:rgba(237,250,255,.42);
+  --accent:#45c7e8;
+  --accent-2:#2789ce;
+  --danger:#ff7c88;
+  --warning:#ffd166;
+  --success:#61d9aa;
+  --shadow:0 24px 70px rgba(0,7,15,.40);
+  --logo-surface:linear-gradient(145deg,#f9feff,#dceff4);
+  --logo-border:rgba(69,199,232,.28);
+  color-scheme:dark;
+}
+
+[data-theme="forest"]{
+  color:#f3f7ef;
+  background:#07130f;
+  --bg:#07130f;
+  --bg-rgb:7,19,15;
+  --text:#f3f7ef;
+  --surface:#10251d;
+  --panel:rgba(215,181,90,.045);
+  --panel-strong:rgba(53,128,87,.12);
+  --input:rgba(255,255,255,.045);
+  --border:rgba(215,181,90,.17);
+  --muted:rgba(243,247,239,.64);
+  --soft:rgba(243,247,239,.42);
+  --accent:#d7b55a;
+  --accent-2:#4ea86d;
+  --danger:#ff7e78;
+  --warning:#f3c76b;
+  --success:#66d09a;
+  --shadow:0 24px 70px rgba(0,7,4,.38);
+  --logo-surface:linear-gradient(145deg,#fffdf8,#e9e1cc);
+  --logo-border:rgba(215,181,90,.32);
+  color-scheme:dark;
+}
+
+[data-theme="sunset"]{
+  color:#fff5ef;
+  background:#17100f;
+  --bg:#17100f;
+  --bg-rgb:23,16,15;
+  --text:#fff5ef;
+  --surface:#291b18;
+  --panel:rgba(255,154,98,.055);
+  --panel-strong:rgba(255,154,98,.105);
+  --input:rgba(255,255,255,.052);
+  --border:rgba(255,181,139,.16);
+  --muted:rgba(255,245,239,.66);
+  --soft:rgba(255,245,239,.42);
+  --accent:#ff9a62;
+  --accent-2:#ef665c;
+  --danger:#ff7171;
+  --warning:#ffd166;
+  --success:#6bd6a8;
+  --shadow:0 24px 70px rgba(14,5,3,.40);
+  --logo-surface:linear-gradient(145deg,#fffaf6,#f1dfd4);
+  --logo-border:rgba(255,154,98,.26);
+  color-scheme:dark;
+}
+
+[data-theme="custom"]{
+  color:var(--custom-text,#f7f7fb);
+  background:var(--custom-bg,#111827);
+  --bg:var(--custom-bg,#111827);
+  --bg-rgb:var(--custom-bg-rgb,17,24,39);
+  --text:var(--custom-text,#f7f7fb);
+  --surface:var(--custom-surface,#1f2937);
+  --panel:color-mix(in srgb,var(--custom-surface,#1f2937) 76%,transparent);
+  --panel-strong:color-mix(in srgb,var(--custom-surface,#1f2937) 92%,white 3%);
+  --input:color-mix(in srgb,var(--custom-surface,#1f2937) 88%,black 5%);
+  --border:color-mix(in srgb,var(--custom-accent,#8b5cf6) 20%,transparent);
+  --muted:color-mix(in srgb,var(--custom-text,#f7f7fb) 66%,transparent);
+  --soft:color-mix(in srgb,var(--custom-text,#f7f7fb) 44%,transparent);
+  --accent:var(--custom-accent,#8b5cf6);
+  --accent-2:var(--custom-accent-2,#3b82f6);
+  --danger:#ff7c88;
+  --warning:#f5c86a;
+  --success:#65ddb0;
+  --shadow:0 24px 70px rgba(0,0,0,.34);
+  --logo-surface:linear-gradient(145deg,#fff,#ececec);
+  --logo-border:color-mix(in srgb,var(--custom-accent,#8b5cf6) 30%,transparent);
+  color-scheme:dark;
+}

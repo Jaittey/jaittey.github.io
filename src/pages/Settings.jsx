@@ -201,6 +201,7 @@ export default function Settings({
       if (withBackup) await createBackup({ silent: true });
       await resetApplicationData();
       localStorage.removeItem('sb-theme');
+      localStorage.removeItem('sb-custom-theme');
       localStorage.removeItem('df7-theme');
       notify('SB has been reset. Reloading the clean application…');
       setTimeout(() => window.location.reload(), 900);
