@@ -1,0 +1,1 @@
+if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register((document.body.dataset.depth==='1'?'../':'')+'sw.js').catch(console.warn))}
