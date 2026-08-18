@@ -1,16 +1,46 @@
-
 window.addEventListener('DOMContentLoaded',async()=>{
- const list=document.querySelector('#workspaceList'),form=document.querySelector('#businessForm');
- async function render(){
-  const c=SBDB.supa(),u=await SBDB.currentUser();let rows=[];
-  if(c&&u){const {data,error}=await c.from('business_memberships').select('*').eq('email',String(u.email).toLowerCase()).eq('active',true);if(error)throw error;rows=data||[]}
-  else rows=SBDB.read('demoBusinesses',[{business_id:'demo-business',business_name:'Demo Company',role:'administrator'}]);
-  list.innerHTML=rows.map(r=>`<button class="card" data-id="${r.business_id}" data-name="${SBUI.escape(r.business_name||'Business')}"><div class="card-icon">🏢</div><h3>${SBUI.escape(r.business_name||'Business')}</h3><p>${SBUI.escape(r.role||'user')}</p></button>`).join('')||'<div class="empty">No company workspace yet.</div>';
-  list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{localStorage.setItem('sbhtml_activeBusinessId',b.dataset.id);localStorage.setItem('sbhtml_activeBusinessName',b.dataset.name);location.href='dashboard.html'})
- }
- if(form)form.onsubmit=async e=>{e.preventDefault();const fd=new FormData(form),name=fd.get('name'),reg=fd.get('registration');const c=SBDB.supa(),u=await SBDB.currentUser();
-  if(c&&u){const id=crypto.randomUUID();let {error}=await c.from('businesses').insert({id,name,legal_name:name,registration_number:reg,owner_id:u.id,owner_email:u.email});if(error)throw error;({error}=await c.from('business_memberships').insert({business_id:id,email:String(u.email).toLowerCase(),display_name:u.user_metadata?.full_name||'',role:'administrator',active:true,business_name:name,permissions:['*']}));if(error)throw error;localStorage.setItem('sbhtml_activeBusinessId',id)}
-  else{const rows=SBDB.read('demoBusinesses',[]),id=SBDB.id();rows.push({business_id:id,business_name:name,role:'administrator'});SBDB.write('demoBusinesses',rows);localStorage.setItem('sbhtml_activeBusinessId',id)}
-  localStorage.setItem('sbhtml_activeBusinessName',name);location.href='dashboard.html'};
- render();
+  const list=document.querySelector('#workspaceList'),form=document.querySelector('#businessForm');
+  const errorBox=(message)=>{if(window.SBUI)SBUI.toast(message,'error');else alert(message)};
+
+  async function render(){
+    if(!list)return;
+    try{
+      const u=await SBAuth.requireUser();if(!u)return;
+      const rows=await SBDB.memberships();
+      let ownsBusiness=false;
+      if(SBDB.supa()){
+        const {data:owned,error:ownedError}=await SBDB.supa().from('businesses').select('id').eq('owner_id',u.id).limit(1);
+        if(ownedError)throw ownedError;
+        ownsBusiness=Boolean(owned?.length);
+      }else ownsBusiness=rows.some(x=>x.owner_id===u.id||x.role==='administrator');
+      list.innerHTML=rows.map(r=>`<button class="card workspace-card" data-id="${r.business_id}" data-name="${SBUI.escape(r.business_name||'Business')}"><div class="card-icon">🏢</div><h3>${SBUI.escape(r.business_name||'Business')}</h3><p>${SBUI.escape(r.role||'user')}</p><span class="workspace-open">Open workspace →</span></button>`).join('')||'<div class="empty">No company workspace yet. Register your business to continue.</div>';
+      list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{SBDB.setActiveBusiness(b.dataset.id,b.dataset.name);location.href='dashboard.html'});
+      const registerLink=document.querySelector('[data-register-business-link]');
+      if(registerLink&&ownsBusiness)registerLink.classList.add('hidden');
+    }catch(e){list.innerHTML=`<div class="alert error">${SBUI.escape(e.message)}</div>`}
+  }
+
+  if(form)form.onsubmit=async e=>{
+    e.preventDefault();
+    const button=form.querySelector('[type="submit"]');button.disabled=true;button.textContent='Creating workspace…';
+    try{
+      const u=await SBAuth.requireUser();if(!u)return;
+      const fd=new FormData(form);
+      const payload={
+        name:String(fd.get('name')||'').trim(),
+        legalName:String(fd.get('name')||'').trim(),
+        registrationNumber:String(fd.get('registration')||'').trim(),
+        address:String(fd.get('address')||'').trim(),
+        email:u.email||'',currency:'MVR'
+      };
+      if(!payload.name)throw new Error('Business name is required.');
+      let businessId;
+      if(SBDB.supa())businessId=await SBDB.rpc('sb_register_business',{p_form:payload});
+      else{
+        const rows=SBDB.read('demoBusinesses',[]);businessId=SBDB.id();rows.push({business_id:businessId,business_name:payload.name,role:'administrator',active:true});SBDB.write('demoBusinesses',rows);
+      }
+      SBDB.setActiveBusiness(businessId,payload.name);location.href='dashboard.html';
+    }catch(e){errorBox(e.message||'Could not create the business workspace.');button.disabled=false;button.textContent='Create Workspace'}
+  };
+  render();
 });

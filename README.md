@@ -1,4 +1,4 @@
-# Small Business v4.0 — HTML Multi-Page Rebuild
+# Small Business v4.0.1 — HTML Multi-Page Stability Fix
 
 ## What changed
 
@@ -166,3 +166,18 @@ Super Admin:
 This rebuild intentionally removes React, JSX, Vite and npm as runtime/build requirements. It can be hosted as a normal static website.
 
 Some advanced workflows from the React project (complex PDF generation, OCR receipt analysis, full Google Drive API workflow, advanced payroll locking, and deep subscription verification actions) require additional plain-JavaScript ports if you need every detail to behave identically. The HTML architecture and Supabase data layer are prepared so those functions can be added without converting pages back to JSX.
+
+
+## v4.0.1 fixes
+
+- Fixed JavaScript syntax errors in Dashboard, POS and Super Admin tables.
+- Business registration now uses the protected `sb_register_business` Supabase RPC instead of blocked direct inserts.
+- Added reliable session and company-workspace guards.
+- Added membership claiming after authentication.
+- Removed the deployed app's accidental demo-mode behavior.
+- Added role/subscription-aware navigation to reduce permission errors.
+- Added desktop/mobile profile dropdown and improved mobile navigation overlay.
+- Service worker now uses a new cache version and network-first HTML navigation to reduce stale deployments.
+- Improved error messages for Supabase CRUD failures.
+
+For production, keep `demoMode: false` in `assets/js/config.js`.

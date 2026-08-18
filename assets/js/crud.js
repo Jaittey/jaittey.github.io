@@ -8,7 +8,7 @@
  const search=document.querySelector('[data-search]');
  const fields=()=>JSON.parse(document.body.dataset.fields||'[]');
  let items=[];
- async function load(){items=await SBDB.list(collection);render()}
+ async function load(){try{items=await SBDB.list(collection);render()}catch(e){SBUI.toast(e.message||'Could not load records.','error');if(table?.querySelector('tbody'))table.querySelector('tbody').innerHTML='<tr><td colspan="99" class="empty">Unable to load records.</td></tr>'}}
  function render(){
   if(!table)return;const q=(search?.value||'').toLowerCase();const rows=items.filter(x=>!q||JSON.stringify(x).toLowerCase().includes(q));
   const tbody=table.querySelector('tbody');if(!rows.length){tbody.innerHTML=`<tr><td colspan="99" class="empty">No records yet.</td></tr>`;return}
@@ -21,7 +21,7 @@
   const html=`<form id="crudForm" class="form-grid">${fields().filter(f=>f.edit!==false).map(f=>fieldHTML(f,record[f.key])).join('')}</form>`;
   const m=SBUI.modal(record.id?'Edit record':'Add record',html,`<button class="btn" data-close2>Cancel</button><button class="btn btn-primary" data-save>Save</button>`);
   m.querySelector('[data-close2]').onclick=()=>m.remove();
-  m.querySelector('[data-save]').onclick=async()=>{const fd=new FormData(m.querySelector('#crudForm')),data={};fields().filter(f=>f.edit!==false).forEach(f=>{let v=fd.get(f.key);if(f.type==='number'||f.type==='money')v=Number(v||0);data[f.key]=v});await SBDB.save(collection,data,record.id);m.remove();SBUI.toast('Saved');load()};
+  m.querySelector('[data-save]').onclick=async()=>{const fd=new FormData(m.querySelector('#crudForm')),data={};fields().filter(f=>f.edit!==false).forEach(f=>{let v=fd.get(f.key);if(f.type==='number'||f.type==='money')v=Number(v||0);data[f.key]=v});try{await SBDB.save(collection,data,record.id);m.remove();SBUI.toast('Saved');load()}catch(e){SBUI.toast(e.message||'Could not save record.','error')}};
  }
  function fieldHTML(f,v=''){const wide=f.wide?'wide':'';if(f.type==='textarea')return `<label class="${wide}"><span>${f.label}</span><textarea name="${f.key}">${SBUI.escape(v)}</textarea></label>`;if(f.options)return `<label class="${wide}"><span>${f.label}</span><select name="${f.key}">${f.options.map(o=>`<option ${String(v)===String(o)?'selected':''}>${o}</option>`).join('')}</select></label>`;const type=f.type==='date'?'date':(f.type==='number'||f.type==='money')?'number':'text';return `<label class="${wide}"><span>${f.label}</span><input type="${type}" step="${f.type==='money'?'0.01':'any'}" name="${f.key}" value="${SBUI.escape(v)}"></label>`}
  if(add)add.onclick=()=>open();if(search)search.oninput=render;
