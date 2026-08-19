@@ -2,6 +2,24 @@ import { useEffect, useState } from 'react';
 import { supabase, SUPER_ADMIN_EMAIL } from '../config/supabase';
 
 const lower = (value = '') => String(value || '').trim().toLowerCase();
+const normalizeEmail = (value = '') => lower(value)
+  .normalize('NFKC')
+  .replace(/[\s\u200B-\u200D\u2060\uFEFF]+/g, '');
+const validEmail = (value = '') => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+
+const friendlyAuthError = (reason, fallback) => {
+  const message = String(reason?.message || '');
+  if (/invalid.*email|email.*invalid/i.test(message)) {
+    return 'Enter a valid email address. Spaces are removed automatically.';
+  }
+  if (/already registered|already exists|user already/i.test(message)) {
+    return 'An account already uses this email. Choose Email sign in instead.';
+  }
+  if (/password/i.test(message) && /weak|short|least/i.test(message)) {
+    return 'Use a password with at least 6 characters.';
+  }
+  return message || fallback;
+};
 
 const normalizeUser = (user) => {
   if (!user) return null;
@@ -158,31 +176,50 @@ export function useAuth() {
   const loginEmail = async (email, password) => {
     setError('');
     try {
+      const normalizedEmail = normalizeEmail(email);
+      if (!validEmail(normalizedEmail)) throw new Error('Invalid email address.');
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: lower(email),
+        email: normalizedEmail,
         password,
       });
       if (authError) throw authError;
+      return { ok: true, email: normalizedEmail };
     } catch (reason) {
-      setError(reason?.message || 'Email sign-in failed.');
+      const message = friendlyAuthError(reason, 'Email sign-in failed.');
+      setError(message);
+      return { ok: false, error: message };
     }
   };
 
   const registerEmail = async (email, password, displayName) => {
     setError('');
     try {
-      const { error: authError } = await supabase.auth.signUp({
-        email: lower(email),
+      const normalizedEmail = normalizeEmail(email);
+      const normalizedName = String(displayName || '').trim().replace(/\s+/g, ' ');
+      if (!normalizedName) throw new Error('Enter your display name.');
+      if (!validEmail(normalizedEmail)) throw new Error('Invalid email address.');
+      if (String(password || '').length < 6) throw new Error('Password must contain at least 6 characters.');
+
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: normalizedEmail,
         password,
         options: {
           data: {
-            full_name: String(displayName || '').trim(),
+            full_name: normalizedName,
           },
+          emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL || '/'}`,
         },
       });
       if (authError) throw authError;
+      return {
+        ok: true,
+        email: normalizedEmail,
+        confirmationRequired: !data?.session,
+      };
     } catch (reason) {
-      setError(reason?.message || 'Account registration failed.');
+      const message = friendlyAuthError(reason, 'Account registration failed.');
+      setError(message);
+      return { ok: false, error: message };
     }
   };
 

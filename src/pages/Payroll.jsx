@@ -155,8 +155,9 @@ export default function Payroll({
   clearInitialEmployee,
   initialFinalEmployee,
   clearInitialFinalEmployee,
+  initialView = 'employees',
 }) {
-  const [view, setView] = useState('employees');
+  const [view, setView] = useState(initialView);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(currentSalaryMonth());
   const [listMonth, setListMonth] = useState(currentSalaryMonth());
@@ -178,6 +179,10 @@ export default function Payroll({
   const [finalForm, setFinalForm] = useState(() => blankFinalSettlement(settings));
   const [processing, setProcessing] = useState(false);
   const [uploadingId, setUploadingId] = useState('');
+
+  useEffect(() => {
+    setView(initialView || 'employees');
+  }, [initialView]);
 
   const normalizedRole = normalizeRole(role);
   const isAdministrator = normalizedRole === 'administrator';

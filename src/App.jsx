@@ -43,6 +43,17 @@ const BusinessOnboarding = lazy(() => import('./pages/BusinessOnboarding'));
 const Subscription = lazy(() => import('./pages/Subscription'));
 const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
 
+const SUPER_ADMIN_SECTIONS = {
+  'super-admin': 'verification',
+  'super-businesses': 'subscribers',
+  'super-users': 'users',
+  'super-requests': 'verification',
+  'super-payments': 'payments',
+  'super-plans': 'plans',
+  'super-offers': 'offers',
+  'super-banks': 'banks',
+  'super-verification': 'verification',
+};
 
 export default function App() {
   const { user, loading: authLoading, error: authError, loginGoogle, loginEmail, registerEmail, logout, isSuperAdmin } = useAuth();
@@ -60,7 +71,7 @@ export default function App() {
 
   const can = (pageId) => {
     if (!authenticated) return false;
-    if (pageId === 'super-admin') return isSuperAdmin;
+    if (SUPER_ADMIN_SECTIONS[pageId]) return isSuperAdmin;
     if (pageId === 'preferences') return true;
     if (!businessId) return false;
     if (role === 'administrator' && ['subscription', 'settings', 'users', 'activity'].includes(pageId)) return true;
@@ -80,7 +91,7 @@ export default function App() {
   const setTheme = (nextTheme) => setThemeState(normalizeTheme(nextTheme));
 
   const settings = useSettings(authenticated && Boolean(businessId), businessId);
-  const attendanceSettings = useAttendanceSettings(authenticated && Boolean(businessId) && ['attendance','attendance-settings'].includes(page), businessId);
+  const attendanceSettings = useAttendanceSettings(authenticated && Boolean(businessId) && ['attendance','attendance-settings','pos'].includes(page), businessId);
   const companyAssets = useCompanyAssets(authenticated && Boolean(businessId), businessId);
 
   const invoices = useLiveCollection('invoices', 'createdAt', can('invoices') && ['dashboard','invoices','payments','customers','reports','cloud','notifications','pos'].includes(page), businessId);
@@ -89,18 +100,18 @@ export default function App() {
   const expenses = useLiveCollection('expenses', 'createdAt', can('expenses') && ['dashboard','expenses','reports'].includes(page), businessId);
   const customers = useLiveCollection('customers', 'createdAt', can('customers') && ['dashboard','customers','invoices','quotes','billing','reports','pos'].includes(page), businessId);
   const billingContracts = useLiveCollection('billingContracts', 'createdAt', can('billing') && ['billing','cloud','notifications'].includes(page), businessId);
-  const employees = useLiveCollection('employees', 'createdAt', can('employees') && ['dashboard','employees','payroll','attendance','reports'].includes(page), businessId);
-  const payroll = useLiveCollection('payroll', 'createdAt', can('payroll') && ['dashboard','payroll','attendance','reports','cloud','notifications'].includes(page), businessId);
-  const salarySlips = useLiveCollection('salarySlips', 'createdAt', can('payroll') && page === 'payroll', businessId);
-  const attendance = useLiveCollection('attendance', 'date', can('attendance') && ['attendance','payroll','reports'].includes(page), businessId);
-  const payrollPeriods = useLiveCollection('payrollPeriods', 'month', can('payroll') && ['payroll','attendance'].includes(page), businessId);
-  const finalSettlements = useLiveCollection('finalSettlements', 'lastWorkingDate', can('payroll') && ['payroll','reports'].includes(page), businessId);
+  const employees = useLiveCollection('employees', 'createdAt', can('employees') && ['dashboard','employees','payroll','final-settlements','attendance','reports','pos'].includes(page), businessId);
+  const payroll = useLiveCollection('payroll', 'createdAt', can('payroll') && ['dashboard','payroll','final-settlements','attendance','reports','cloud','notifications'].includes(page), businessId);
+  const salarySlips = useLiveCollection('salarySlips', 'createdAt', can('payroll') && ['payroll','final-settlements'].includes(page), businessId);
+  const attendance = useLiveCollection('attendance', 'date', can('attendance') && ['attendance','payroll','final-settlements','reports','pos'].includes(page), businessId);
+  const payrollPeriods = useLiveCollection('payrollPeriods', 'month', can('payroll') && ['payroll','final-settlements','attendance'].includes(page), businessId);
+  const finalSettlements = useLiveCollection('finalSettlements', 'lastWorkingDate', can('payroll') && ['payroll','final-settlements','reports'].includes(page), businessId);
   const budgets = useLiveCollection('budgets', 'createdAt', can('budget') && ['dashboard','budget','notifications'].includes(page), businessId);
-  const payments = useLiveCollection('payments', 'createdAt', can('payments') && page === 'payments', businessId);
+  const payments = useLiveCollection('payments', 'createdAt', (can('payments') || can('income-payments')) && ['payments','income-payments'].includes(page), businessId);
   const users = useLiveCollection('userAccess', 'updatedAt', role === 'administrator' && Boolean(businessId) && page === 'users', businessId);
   const activityLogs = useLiveCollection('activityLogs', 'createdAt', role === 'administrator' && Boolean(businessId) && page === 'activity', businessId);
 
-  const superAdminMode = isSuperAdmin && page === 'super-admin';
+  const superAdminMode = isSuperAdmin && Boolean(SUPER_ADMIN_SECTIONS[page]);
   const subscriptionMode = page === 'subscription';
   const globalBusinesses = useGlobalCollection('businesses', 'createdAt', superAdminMode);
   const globalSubscriptions = useGlobalCollection('businessSubscriptions', 'updatedAt', superAdminMode);
@@ -165,10 +176,12 @@ export default function App() {
   const ownSubscriptionRequests = subscriptionRequests.items.filter((request)=>request.businessId===businessId);
 
   const renderPage = () => {
+    if (SUPER_ADMIN_SECTIONS[page]) {
+      return <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={business} initialTab={SUPER_ADMIN_SECTIONS[page]} notify={notify}/>;
+    }
     switch (page) {
       case 'subscription': return <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} user={user} role={role} notify={notify}/>;
-      case 'super-admin': return <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={business} notify={notify}/>;
-      case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} {...common}/>;
+      case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} employees={employees.items} attendance={attendance.items} attendanceSettings={attendanceSettings} user={user} onNavigate={setPage} {...common}/>;
       case 'invoices': return <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected}/>;
       case 'quotes': return <Quotes quotes={quotes.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} openInvoices={()=>setPage('invoices')}/>;
       case 'billing': return <Billing contracts={billingContracts.items} customers={customers.items} {...common} openInvoices={()=>setPage('invoices')}/>;
@@ -188,6 +201,7 @@ export default function App() {
         {title:'Promotions & transfers',icon:'↗',description:'Structured HR history and attachments.',features:['Promotions','Transfers','Resignations','Employee notes'],ready:false},
       ]);
       case 'payroll': return <Payroll payroll={payroll.items} salarySlips={salarySlips.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={()=>setPayrollEmployee(null)} initialFinalEmployee={finalSettlementEmployee} clearInitialFinalEmployee={()=>setFinalSettlementEmployee(null)}/>;
+      case 'final-settlements': return <Payroll payroll={payroll.items} salarySlips={salarySlips.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialView="settlements"/>;
       case 'attendance': return <Attendance attendance={attendance.items} employees={employees.items} payroll={payroll.items} payrollPeriods={payrollPeriods.items} attendanceSettings={attendanceSettings} {...common} role={role} onOpenSettings={()=>setPage('attendance-settings')}/>;
       case 'attendance-settings': return <AttendanceSettings attendanceSettings={attendanceSettings} notify={notify}/>;
       case 'finance': return hub('FINANCIAL MANAGEMENT','Finance Overview','Income, expenses, budgets and tax controls.',[
@@ -196,6 +210,7 @@ export default function App() {
         {title:'Budget',icon:'◫',description:'Annual and monthly budget planning.',features:['Planned amount','Actual amount','Remaining budget'],ready:true,page:'budget'},
       ]);
       case 'expenses': return <Expenses expenses={expenses.items} {...common}/>;
+      case 'income-payments': return <Payments payments={payments.items} invoices={invoices.items} {...common}/>;
       case 'budget': return <Budget budgets={budgets.items} {...common}/>;
       case 'tax': return hub('FINANCIAL MANAGEMENT','GST & Tax','Company GST configuration and tax-ready document controls.',[
         {title:'GST settings',icon:'%',description:'GST registration, TIN and default rates are controlled by the Company Administrator.',features:['TIN','GST percentage','Tax invoice title'],ready:true},

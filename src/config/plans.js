@@ -8,12 +8,12 @@ export const PLAN_DEFINITIONS = {
   },
   GOLD: {
     id: 'GOLD', name: 'VIP Gold', tagline: 'Operations and workforce', level: 2,
-    pages: ['dashboard','pos','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','attendance','attendance-settings','products','suppliers','assets','preferences'],
+    pages: ['dashboard','pos','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','final-settlements','attendance','attendance-settings','products','suppliers','assets','preferences'],
     highlights: ['Everything in Silver','Sales & Billing','CRM','Employee Management','Payroll & Attendance','Inventory & Assets'],
   },
   PLATINUM: {
     id: 'PLATINUM', name: 'VIP Platinum', tagline: 'Complete Small Business Suite', level: 3,
-    pages: ['dashboard','pos','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','attendance','attendance-settings','finance','expenses','budget','tax','products','suppliers','assets','reports','cloud','notifications','preferences'],
+    pages: ['dashboard','pos','quotes','invoices','billing','payments','customers','contracts','statements','employees','hr-records','payroll','final-settlements','attendance','attendance-settings','finance','income-payments','expenses','budget','tax','products','suppliers','assets','reports','cloud','notifications','preferences'],
     highlights: ['Everything in Gold','Financial Management','Reports & Analytics','Cloud & Documents','Google Drive','Business Backup & Restore'],
   },
 };

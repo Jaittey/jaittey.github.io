@@ -65,9 +65,10 @@ export default function SuperAdmin({
   paymentMethods,
   bankAccounts,
   customOffers = [],
+  initialTab = 'verification',
   notify,
 }) {
-  const [tab, setTab] = useState('verification');
+  const [tab, setTab] = useState(initialTab);
   const [review, setReview] = useState(null);
   const [reviewAction, setReviewAction] = useState('approve');
   const [reviewForm, setReviewForm] = useState({ notes: '', startsAt: '', endsAt: '' });
@@ -78,6 +79,10 @@ export default function SuperAdmin({
   const [bankDrafts, setBankDrafts] = useState({});
   const [offerEditor, setOfferEditor] = useState(null);
   const [offerForm, setOfferForm] = useState({ name: '', description: '', planId: 'PLATINUM', price: 0, currency: 'MVR', durationType: 'MONTHS', durationValue: 6, active: true });
+
+  useEffect(() => {
+    setTab(initialTab || 'verification');
+  }, [initialTab]);
 
   const subscriptionByBusiness = useMemo(
     () => Object.fromEntries(subscriptions.map((item) => [item.businessId || item.id, item])),

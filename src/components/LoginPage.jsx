@@ -10,13 +10,31 @@ export default function LoginPage({
 }) {
   const [mode, setMode] = useState('google');
   const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState('');
+
+  const chooseMode = (nextMode) => {
+    setMode(nextMode);
+    setNotice('');
+  };
 
   const submit = async (event) => {
     event.preventDefault();
-    if (mode === 'register') {
-      await registerEmail(form.email, form.password, form.name);
-    } else {
-      await loginEmail(form.email, form.password);
+    setSubmitting(true);
+    setNotice('');
+    try {
+      const result = mode === 'register'
+        ? await registerEmail(form.email, form.password, form.name)
+        : await loginEmail(form.email, form.password);
+
+      if (result?.ok && mode === 'register') {
+        setForm((current) => ({ ...current, email: result.email, password: '' }));
+        setNotice(result.confirmationRequired
+          ? `Account created. Check ${result.email} for the confirmation link, then sign in.`
+          : 'Account created successfully. Opening your workspace…');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -48,9 +66,9 @@ export default function LoginPage({
         <p className="login-copy">Access your company dashboard, daily operations, and team workspace.</p>
 
         <div className="login-mode-tabs">
-          <button type="button" className={mode === 'google' ? 'active' : ''} onClick={() => setMode('google')}>Google</button>
-          <button type="button" className={mode === 'email' ? 'active' : ''} onClick={() => setMode('email')}>Email</button>
-          <button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Register</button>
+          <button type="button" className={mode === 'google' ? 'active' : ''} onClick={() => chooseMode('google')}>Google</button>
+          <button type="button" className={mode === 'email' ? 'active' : ''} onClick={() => chooseMode('email')}>Email</button>
+          <button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => chooseMode('register')}>Register</button>
         </div>
 
         {mode === 'google' ? (
@@ -61,18 +79,19 @@ export default function LoginPage({
         ) : (
           <form className="enterprise-login-form" onSubmit={submit}>
             {mode === 'register' && (
-              <label><span>Display name</span><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
+              <label><span>Display name</span><input autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></label>
             )}
-            <label><span>Email address</span><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
-            <label><span>Password</span><input type="password" minLength="6" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></label>
-            <button className="button button-primary" disabled={loading}>
-              {mode === 'register' ? 'Create account' : 'Sign in'}
+            <label><span>Email address</span><input type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck="false" autoComplete={mode === 'register' ? 'email' : 'username'} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value.replace(/\s+/g, '') })} required /></label>
+            <label><span>Password</span><input type="password" minLength="6" autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></label>
+            <button className="button button-primary" disabled={loading || submitting}>
+              {submitting ? 'Please wait…' : mode === 'register' ? 'Create account' : 'Sign in'}
             </button>
           </form>
         )}
 
         {configurationError && <div className="alert alert-error">{configurationError}</div>}
         {error && <div className="alert alert-error">{error}</div>}
+        {notice && <div className="alert alert-success" role="status" aria-live="polite">{notice}</div>}
         <p className="login-security"><span>⌾</span> Protected by workspace-level access controls and secure company data isolation.</p>
       </section>
     </main>
