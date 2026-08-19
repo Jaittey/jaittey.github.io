@@ -44,23 +44,38 @@ export default function Dashboard({ invoices, expenses, products, customers, emp
   const userActions = managerActions.slice(0, 4);
   const actions = (normalizedRole === 'user' ? userActions : managerActions)
     .filter(([id]) => canAccessPage(role, id));
+  const today = new Intl.DateTimeFormat('en', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+  const profitPositive = netProfit >= 0;
 
   return <>
-    <section className="mobile-dashboard-welcome">
-      <div><p className="eyebrow">BUSINESS OVERVIEW</p><h2>Welcome back</h2><small>Choose a module below—no searching required.</small></div>
+    <section className="dashboard-hero">
+      <div className="dashboard-hero-copy">
+        <div className="live-pill"><i/> Live business overview <span>{today}</span></div>
+        <p className="eyebrow">YOUR WORKSPACE</p>
+        <h2>Everything that matters,<br/><em>in one clear view.</em></h2>
+        <p>Track cash flow, keep your team moving, and act on what needs attention without jumping between tools.</p>
+        <div className="dashboard-hero-actions">
+          {canAccessPage(role, 'pos') && <button className="button button-primary" type="button" onClick={() => onNavigate('pos')}><span>＋</span> New sale</button>}
+          {canAccessPage(role, 'invoices') && <button className="button button-ghost" type="button" onClick={() => onNavigate('invoices')}>View invoices <span>→</span></button>}
+        </div>
+      </div>
+      <div className="dashboard-hero-signal">
+        <div className="hero-signal-orbit"><span>SB</span><i/><i/><i/></div>
+        <div className="hero-profit-card"><small>Current position</small><strong className={profitPositive?'positive':'negative'}>{profitPositive?'Positive':'Needs review'}</strong><span>{currency(netProfit, settings.currency)} net</span></div>
+      </div>
     </section>
 
-    <section className="mobile-quick-access" aria-label="Quick access">
-      <div className="mobile-section-heading"><h2>Quick access</h2><button type="button" onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}>Overview ↓</button></div>
-      <div className="mobile-quick-grid">{actions.map(([id, icon, label]) => (
-        <button type="button" key={id} onClick={() => onNavigate(id)}><span>{icon}</span><b>{label}</b></button>
+    <section className="dashboard-quick-access" aria-label="Quick access">
+      <div className="dashboard-section-title"><div><p className="eyebrow">SHORTCUTS</p><h2>Quick actions</h2></div><span>Move faster through daily work</span></div>
+      <div className="dashboard-quick-grid">{actions.map(([id, icon, label]) => (
+        <button type="button" key={id} onClick={() => onNavigate(id)}><span>{icon}</span><b>{label}</b><i>↗</i></button>
       ))}</div>
     </section>
 
     <section className="stats-grid enterprise-dashboard-stats compact-dashboard-stats">{stats.map(([label, value, sub, icon], index) => <article className={`stat-card dashboard-stat-${index + 1}`} key={label}><span>{icon}</span><p>{label}</p><strong>{value}</strong><small>{sub}</small></article>)}</section>
 
     <section className="dashboard-grid dashboard-main-grid">
-      <article className="panel chart-panel"><div className="panel-heading"><div><p className="eyebrow">LAST SIX MONTHS</p><h2>Revenue overview</h2></div><div className="chart-legend"><span><i />Sales</span><span><i className="expense" />Expenses</span></div></div><MiniChart data={monthly} currencyCode={settings.currency} /></article>
+      <article className="panel chart-panel"><div className="panel-heading"><div><p className="eyebrow">LAST SIX MONTHS</p><h2>Revenue momentum</h2></div><div className="chart-legend"><span><i />Sales</span><span><i className="expense" />Expenses</span></div></div><MiniChart data={monthly} currencyCode={settings.currency} /></article>
       <article className="panel dashboard-alert-panel"><div className="panel-heading"><div><p className="eyebrow">ALERTS</p><h2>Needs attention</h2></div><span className="count-badge">{lowStock.length + unpaidPayroll}</span></div><div className="alert-list">{lowStock.slice(0, 3).map((row) => <div key={row.id}><div><strong>{row.name}</strong><small>Low-stock threshold: {row.threshold}</small></div><span>{row.quantity} left</span></div>)}{monthPayrollRecords.filter((row) => !['PAID', 'CANCELLED'].includes(row.status)).slice(0, 3).map((row) => <div key={row.id}><div><strong>{row.employeeName}</strong><small>{salaryMonthLabel(row.salaryMonth)} salary</small></div><span>{row.status}</span></div>)}{!lowStock.length && !unpaidPayroll && <div className="healthy-state">✓ No urgent alerts.</div>}</div></article>
     </section>
 
