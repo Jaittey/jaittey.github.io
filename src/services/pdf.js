@@ -49,7 +49,27 @@ const dataUrlFormat = (dataUrl = '') => {
 const addUploadedImage = (doc, dataUrl, x, y, width, height, alias) => {
   if (!dataUrl) return false;
   try {
-    doc.addImage(dataUrl, dataUrlFormat(dataUrl), x, y, width, height, alias, 'FAST');
+    // Keep the original image ratio. Uploaded logos/signatures/stamps can have
+    // very different dimensions, so forcing width + height stretches them.
+    const props = doc.getImageProperties(dataUrl);
+    const sourceWidth = safeNumber(props?.width);
+    const sourceHeight = safeNumber(props?.height);
+
+    let drawWidth = width;
+    let drawHeight = height;
+    if (sourceWidth > 0 && sourceHeight > 0) {
+      const ratio = sourceWidth / sourceHeight;
+      drawWidth = width;
+      drawHeight = drawWidth / ratio;
+      if (drawHeight > height) {
+        drawHeight = height;
+        drawWidth = drawHeight * ratio;
+      }
+    }
+
+    const drawX = x + (width - drawWidth) / 2;
+    const drawY = y + (height - drawHeight) / 2;
+    doc.addImage(dataUrl, dataUrlFormat(dataUrl), drawX, drawY, drawWidth, drawHeight, alias, 'FAST');
     return true;
   } catch (error) {
     console.warn(error);
@@ -60,13 +80,22 @@ const addUploadedImage = (doc, dataUrl, x, y, width, height, alias) => {
 async function addPaidStamp(doc, record, y, options = {}, settings = {}) {
   if (String(record.status || record.paymentStatus || '').toUpperCase() !== 'PAID') return false;
   try {
-    const stamp = settings.paidStampDataUrl || await loadPaidStampAsDataUrl();
-    const stampSize = safeNumber(options.size) || 38;
-    const stampX = safeNumber(options.x) || 154;
+    // The uploaded Company Stamp is the preferred PAID stamp. Only fall back
+    // to the bundled PAID.png when the company has not uploaded one.
+    const stamp = settings.companyStampDataUrl || settings.paidStampDataUrl || await loadPaidStampAsDataUrl();
+    const stampSize = safeNumber(options.size) || 28;
+    const stampX = safeNumber(options.x) || 164;
     const maxY = 274 - stampSize;
     const stampY = Math.max(18, Math.min(y, maxY));
-    doc.addImage(stamp, 'PNG', stampX, stampY, stampSize, stampSize, options.alias || 'df7-paid-stamp', 'FAST');
-    return true;
+    return addUploadedImage(
+      doc,
+      stamp,
+      stampX,
+      stampY,
+      stampSize,
+      stampSize,
+      options.alias || 'df7-paid-stamp',
+    );
   } catch (error) {
     console.warn(error);
     return false;
@@ -76,7 +105,7 @@ async function addPaidStamp(doc, record, y, options = {}, settings = {}) {
 async function addCompanyLogo(doc, settings = {}) {
   try {
     const logo = settings.companyLogoDataUrl || await loadCompanyLogoAsDataUrl();
-    return addUploadedImage(doc, logo, 14, 7, 55, 28, 'df7-company-logo');
+    return addUploadedImage(doc, logo, 14, 7, 55, 24, 'df7-company-logo');
   } catch (error) {
     console.warn(error);
     return false;
@@ -344,7 +373,7 @@ export async function createBusinessPdf(kind, record, settings) {
     notesY += 7 + bankLines.length * 4.2;
   }
 
-  if (paid) await addPaidStamp(doc, record, notesStartY + 2, {}, settings);
+  if (paid) await addPaidStamp(doc, record, notesStartY + 2, { x: 164, size: 28 }, settings);
 
   if (settings.authorizedSignatory || settings.managerSignatureDataUrl || settings.companyStampDataUrl) {
     let signatureY = Math.max(notesY + 5, paid ? notesStartY + 46 : notesY + 5);
@@ -355,15 +384,15 @@ export async function createBusinessPdf(kind, record, settings) {
     doc.setTextColor(45, 51, 62);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    addManagerSignature(doc, settings, 142, signatureY - 12, 34, 10);
-    addCompanyStamp(doc, settings, 176, signatureY - 15, 17);
+    addManagerSignature(doc, settings, 142, signatureY - 14, 34, 12);
+    if (!paid) addCompanyStamp(doc, settings, 176, signatureY - 15, 17);
     doc.text('Authorized by:', 142, signatureY);
     doc.setFont('helvetica', 'bold');
     doc.text(settings.authorizedSignatory, 142, signatureY + 6);
     doc.setFont('helvetica', 'normal');
     if (settings.designation) doc.text(settings.designation, 142, signatureY + 11);
     doc.line(142, signatureY + 18, 194, signatureY + 18);
-    doc.text('Authorized signature / company stamp', 142, signatureY + 23);
+    doc.text(paid ? 'Authorized signature' : 'Authorized signature / company stamp', 142, signatureY + 23);
   }
 
   addPageFooter(doc, settings);
@@ -536,8 +565,8 @@ export async function createSalarySlipPdf(record, settings) {
   doc.setFontSize(8);
   doc.line(14, signatureY, 74, signatureY);
   doc.line(136, signatureY, 196, signatureY);
-  addManagerSignature(doc, settings, 136, signatureY - 15, 35, 10);
-  addCompanyStamp(doc, settings, 175, signatureY - 18, 18);
+  addManagerSignature(doc, settings, 136, signatureY - 16, 35, 12);
+  if (!paid) addCompanyStamp(doc, settings, 175, signatureY - 18, 18);
   doc.text(record.employeeAcknowledgement || 'Employee acknowledgement', 14, signatureY + 5);
   doc.text(record.managerApproval || 'Manager approval / authorized signature', 136, signatureY + 5);
   if (settings.authorizedSignatory) {
