@@ -1,7 +1,0 @@
-
-@media print{
-  .sidebar,.topbar,.mobile-nav,.no-print,.toolbar,.actions,.btn{display:none!important}
-  body,.main,.content{background:#fff!important;color:#111!important;margin:0!important;padding:0!important}
-  .panel,.card,.hero{box-shadow:none!important;border:0!important;background:#fff!important;color:#111!important}
-  .print-page{width:210mm;min-height:297mm;margin:auto;padding:14mm}
-}

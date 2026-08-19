@@ -1,4 +1,0 @@
-window.addEventListener('DOMContentLoaded',async()=>{
- const table=document.querySelector('[data-platform-table]');if(!table)return;
- try{const state=await SBDB.bootstrap({requireBusiness:false});if(!state.isSuperAdmin)throw new Error('Super Admin access required.');const rows=await SBDB.platformList(table.dataset.platformTable);const tbody=table.querySelector('tbody');const keys=JSON.parse(table.dataset.keys||'[]');tbody.innerHTML=rows.length?rows.map(r=>`<tr>${keys.map(k=>`<td data-label="${SBUI.escape(k.label)}">${SBUI.escape(r[k.key]??'')}</td>`).join('')}</tr>`).join(''):'<tr><td colspan="99" class="empty">No records.</td></tr>'}catch(e){const tbody=table.querySelector('tbody');tbody.innerHTML=`<tr><td colspan="99"><div class="data-error"><b>Could not load platform data.</b><br>${SBUI.escape(e.message||String(e))}</div></td></tr>`;SBUI.toast(e.message,'error')}
-});
