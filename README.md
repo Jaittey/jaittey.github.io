@@ -1,4 +1,9 @@
-# Small Business v4.0.1 — HTML Multi-Page Stability Fix
+# Small Business v4.1 — HTML Multi-Page Database Fix
+
+This release keeps the plain HTML/CSS/JavaScript architecture and fixes the Supabase connection/workspace migration issues found after v4.0 deployment.
+
+See `docs/DATABASE_CONNECTION_FIX_v4_1.md` first.
+
 
 ## What changed
 
@@ -20,20 +25,23 @@ JavaScript is still used for **functionality** (Supabase, authentication, CRUD, 
 
 ## Important configuration
 
-Edit:
+The deployed app now receives its browser-safe Supabase configuration from GitHub Actions.
 
-`assets/js/config.js`
+Keep these repository secrets in:
 
-Add only:
+`Settings → Secrets and variables → Actions`
 
-```js
-supabaseUrl: 'https://YOUR-PROJECT.supabase.co',
-supabasePublishableKey: 'YOUR_PUBLISHABLE_OR_ANON_KEY',
-```
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-Never place a `service_role`, secret key, JWT secret, or database password in this file.
+Optional:
 
-If the values are left blank, the app runs in local demo mode using browser localStorage.
+- `VITE_SUPER_ADMIN_EMAIL`
+- `VITE_GOOGLE_CLIENT_ID`
+
+The workflow generates `assets/js/runtime-config.js` during deployment. Do not put a service-role key, secret key, JWT secret, or database password in browser files.
+
+The app no longer silently falls back to local demo data when Supabase configuration is missing. It displays a clear configuration error instead.
 
 ## Backend
 
@@ -50,7 +58,7 @@ For POS, your project must already include the `sb_complete_pos_sale` RPC from:
 1. Back up your current GitHub repository.
 2. Remove the old React/Vite project files from the repository.
 3. Upload all files from this HTML package to the repository root.
-4. Edit `assets/js/config.js` with your Supabase public configuration.
+4. Confirm the GitHub Actions Supabase secrets above exist.
 5. Commit to `main`.
 6. Open GitHub → Settings → Pages and ensure **GitHub Actions** is selected.
 7. Open GitHub → Actions and wait for `Deploy Small Business HTML`.
@@ -166,18 +174,3 @@ Super Admin:
 This rebuild intentionally removes React, JSX, Vite and npm as runtime/build requirements. It can be hosted as a normal static website.
 
 Some advanced workflows from the React project (complex PDF generation, OCR receipt analysis, full Google Drive API workflow, advanced payroll locking, and deep subscription verification actions) require additional plain-JavaScript ports if you need every detail to behave identically. The HTML architecture and Supabase data layer are prepared so those functions can be added without converting pages back to JSX.
-
-
-## v4.0.1 fixes
-
-- Fixed JavaScript syntax errors in Dashboard, POS and Super Admin tables.
-- Business registration now uses the protected `sb_register_business` Supabase RPC instead of blocked direct inserts.
-- Added reliable session and company-workspace guards.
-- Added membership claiming after authentication.
-- Removed the deployed app's accidental demo-mode behavior.
-- Added role/subscription-aware navigation to reduce permission errors.
-- Added desktop/mobile profile dropdown and improved mobile navigation overlay.
-- Service worker now uses a new cache version and network-first HTML navigation to reduce stale deployments.
-- Improved error messages for Supabase CRUD failures.
-
-For production, keep `demoMode: false` in `assets/js/config.js`.

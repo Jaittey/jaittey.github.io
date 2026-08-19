@@ -1,15 +1,14 @@
-window.SB_CONFIG = {
-  appName: 'Small Business',
-  version: '4.0.1 HTML',
-
-  // Public Supabase browser configuration.
-  // The publishable key is designed for browser use. Never put a secret/service_role key here.
-  supabaseUrl: 'https://cpibkajrhpmsewzrbfqj.supabase.co',
-  supabasePublishableKey: 'sb_publishable_gXff-L5CplkrsfrFKdw4vA_VImC9SG_',
-
-  superAdminEmail: 'jaeitte@gmail.com',
-  currency: 'MVR',
-
-  // Keep false on the deployed application. Set true only when intentionally testing without Supabase.
-  demoMode: false
-};
+(function(){
+  const runtime = window.SB_RUNTIME_CONFIG || {};
+  window.SB_CONFIG = {
+    appName: 'Small Business',
+    version: '4.1 HTML DB Fix',
+    supabaseUrl: String(runtime.supabaseUrl || '').trim(),
+    supabasePublishableKey: String(runtime.supabasePublishableKey || runtime.supabaseAnonKey || '').trim(),
+    superAdminEmail: String(runtime.superAdminEmail || 'jaeitte@gmail.com').trim().toLowerCase(),
+    googleClientId: String(runtime.googleClientId || '').trim(),
+    currency: 'MVR',
+    // Never silently switch a deployed application to browser-only demo data.
+    demoMode: false,
+  };
+})();

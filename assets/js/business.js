@@ -1,46 +1,35 @@
 window.addEventListener('DOMContentLoaded',async()=>{
   const list=document.querySelector('#workspaceList'),form=document.querySelector('#businessForm');
-  const errorBox=(message)=>{if(window.SBUI)SBUI.toast(message,'error');else alert(message)};
-
   async function render(){
-    if(!list)return;
     try{
-      const u=await SBAuth.requireUser();if(!u)return;
-      const rows=await SBDB.memberships();
-      let ownsBusiness=false;
-      if(SBDB.supa()){
-        const {data:owned,error:ownedError}=await SBDB.supa().from('businesses').select('id').eq('owner_id',u.id).limit(1);
-        if(ownedError)throw ownedError;
-        ownsBusiness=Boolean(owned?.length);
-      }else ownsBusiness=rows.some(x=>x.owner_id===u.id||x.role==='administrator');
-      list.innerHTML=rows.map(r=>`<button class="card workspace-card" data-id="${r.business_id}" data-name="${SBUI.escape(r.business_name||'Business')}"><div class="card-icon">🏢</div><h3>${SBUI.escape(r.business_name||'Business')}</h3><p>${SBUI.escape(r.role||'user')}</p><span class="workspace-open">Open workspace →</span></button>`).join('')||'<div class="empty">No company workspace yet. Register your business to continue.</div>';
-      list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{SBDB.setActiveBusiness(b.dataset.id,b.dataset.name);location.href='dashboard.html'});
-      const registerLink=document.querySelector('[data-register-business-link]');
-      if(registerLink&&ownsBusiness)registerLink.classList.add('hidden');
-    }catch(e){list.innerHTML=`<div class="alert error">${SBUI.escape(e.message)}</div>`}
+      const state=await SBDB.bootstrap({requireBusiness:false});
+      if(!state.user){ location.replace('index.html'); return; }
+      const rows=state.memberships||[];
+      if(list){
+        list.innerHTML=rows.map(r=>`<button class="card" data-id="${r.business_id}" data-name="${SBUI.escape(r.business_name||'Business')}"><div class="card-icon">🏢</div><h3>${SBUI.escape(r.business_name||'Business')}</h3><p>${SBUI.escape(r.role||'user')}</p></button>`).join('')||'<div class="empty">No company workspace yet. Register a business to continue.</div>';
+        list.querySelectorAll('[data-id]').forEach(b=>b.onclick=async()=>{try{await SBDB.selectBusiness(b.dataset.id);location.href='dashboard.html'}catch(e){SBUI.toast(e.message,'error')}});
+      }
+    }catch(e){
+      if(list) list.innerHTML=`<div class="empty"><b>Database connection problem</b><br><span class="muted">${SBUI.escape(e.message)}</span></div>`;
+      SBUI.toast(e.message,'error');
+    }
   }
-
-  if(form)form.onsubmit=async e=>{
+  if(form) form.onsubmit=async e=>{
     e.preventDefault();
-    const button=form.querySelector('[type="submit"]');button.disabled=true;button.textContent='Creating workspace…';
     try{
-      const u=await SBAuth.requireUser();if(!u)return;
       const fd=new FormData(form);
       const payload={
         name:String(fd.get('name')||'').trim(),
-        legalName:String(fd.get('name')||'').trim(),
         registrationNumber:String(fd.get('registration')||'').trim(),
         address:String(fd.get('address')||'').trim(),
-        email:u.email||'',currency:'MVR'
+        phone:String(fd.get('phone')||'').trim(),
+        email:String(fd.get('email')||'').trim(),
+        currency:'MVR'
       };
-      if(!payload.name)throw new Error('Business name is required.');
-      let businessId;
-      if(SBDB.supa())businessId=await SBDB.rpc('sb_register_business',{p_form:payload});
-      else{
-        const rows=SBDB.read('demoBusinesses',[]);businessId=SBDB.id();rows.push({business_id:businessId,business_name:payload.name,role:'administrator',active:true});SBDB.write('demoBusinesses',rows);
-      }
-      SBDB.setActiveBusiness(businessId,payload.name);location.href='dashboard.html';
-    }catch(e){errorBox(e.message||'Could not create the business workspace.');button.disabled=false;button.textContent='Create Workspace'}
+      const bid=await SBDB.registerBusiness(payload);
+      await SBDB.selectBusiness(bid);
+      location.href='dashboard.html';
+    }catch(error){ SBUI.toast(error.message||'Could not register business.','error'); }
   };
   render();
 });
