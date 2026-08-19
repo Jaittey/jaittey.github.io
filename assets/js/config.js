@@ -3,8 +3,8 @@
   window.SB_CONFIG = {
     appName: 'Small Business',
     version: '4.1 HTML DB Fix',
-    supabaseUrl: String(runtime.supabaseUrl || '').trim(),
-    supabasePublishableKey: String(runtime.supabasePublishableKey || runtime.supabaseAnonKey || '').trim(),
+    supabaseUrl: String(runtime.supabaseUrl || 'https://cpibkajrhpmsewzrbfqj.supabase.co').trim(),
+    supabasePublishableKey: String(runtime.supabasePublishableKey || runtime.supabaseAnonKey || 'sb_publishable_gXff-L5CplkrsfrFKdw4vA_VImC9SG_').trim(),
     superAdminEmail: String(runtime.superAdminEmail || 'jaeitte@gmail.com').trim().toLowerCase(),
     googleClientId: String(runtime.googleClientId || '').trim(),
     currency: 'MVR',
