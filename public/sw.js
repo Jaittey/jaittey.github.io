@@ -1,4 +1,4 @@
-const CACHE = 'sb-v5-commerce-500';
+const CACHE = 'small-business-suite-100';
 const CORE = ['/', '/index.html', '/manifest.webmanifest', '/icon.png'];
 
 self.addEventListener('install', (event) => {

@@ -1,0 +1,55 @@
+SMALL BUSINESS SUITE 1.0 — MANUAL UPGRADE MANIFEST
+==================================================
+
+REPLACE / UPDATE
+- index.html
+- package.json
+- public/manifest.webmanifest
+- public/sw.js
+- src/App.jsx
+- src/main.jsx
+- src/components/AppShell.jsx
+- src/config/brand.js
+- src/config/erp.js
+- src/config/plans.js
+- src/config/themes.js
+- src/pages/Invoices.jsx
+- src/pages/POS.jsx
+- src/pages/Products.jsx
+- src/pages/Quotes.jsx
+- src/pages/UserPreferences.jsx
+
+ADD
+- backend/sb_suite_1_0_upgrade.sql
+- src/services/businessPdf.js
+- src/services/platformAdmin.js
+- src/styles-suite.css
+- src/pages/SuperAdminAppSettings.jsx
+- src/pages/Suppliers.jsx
+- src/pages/PurchaseOrders.jsx
+- src/pages/Marketplace.jsx
+- src/pages/KitchenDisplay.jsx
+- src/pages/ServiceJobs.jsx
+- src/pages/HRRecords.jsx
+- src/pages/Assets.jsx
+- src/services/commerce.js
+- src/styles-v5.css
+
+DOCUMENTATION
+- README.md
+- STEP_BY_STEP_SUITE_1_0.md
+- REMOVE_OLD_FILES.md
+- VALIDATION_REPORT_SUITE_1_0.md
+- references/Navigation Style.html
+
+PRESERVE — DO NOT REPLACE/DELETE
+- src/hooks/useAuth.js
+- src/components/LoginPage.jsx
+- supabase/functions/activate-company-user/
+- src/config/supabase.js
+- .github/workflows/deploy-pages.yml
+- existing Supabase keys/secrets/configuration
+- working subscription/payment/authentication data
+
+OLD REPOSITORY FILES RECOMMENDED FOR REMOVAL AFTER SUCCESSFUL DEPLOY
+See REMOVE_OLD_FILES.md.

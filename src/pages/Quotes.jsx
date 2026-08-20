@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import DocumentEditor from '../components/DocumentEditor';
 import EmptyState from '../components/EmptyState';
-import { createBusinessPdf, downloadBlob, previewBlob } from '../services/pdf';
+import { createBusinessPdf, downloadBlob, previewBlob } from '../services/businessPdf';
 import { deleteRecord, saveInvoiceWithStock, saveRecord } from '../services/database';
 import { uploadBusinessPdf } from '../services/drive';
 import { currency, dateText, makeNumber } from '../utils/format';
@@ -83,9 +83,9 @@ export default function Quotes({ quotes, customers, products, settings, notify, 
         <thead><tr><th className="select-column"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all visible quotations" /></th><th>Quotation</th><th>Date</th><th>Expire date</th><th>Customer</th><th>Status</th><th>Total</th><th>Actions</th></tr></thead>
         <tbody>{filtered.map((row) => <tr key={row.id} className={selected.includes(row.id) ? 'selected-row' : ''}>
           <td className="select-column"><input type="checkbox" checked={selected.includes(row.id)} onChange={() => toggle(row.id)} aria-label={`Select ${row.quoteNumber}`} /></td>
-          <td data-label="Quotation"><strong>{row.quoteNumber}</strong>{row.driveWebViewLink && <a className="drive-link" href={row.driveWebViewLink} target="_blank" rel="noreferrer">Drive</a>}</td>
-          <td data-label="Date">{dateText(row.documentDate || row.createdAt)}</td><td data-label="Expire date">{dateText(row.validUntil)}</td><td data-label="Customer">{row.customerName}</td><td data-label="Status"><span className={`status status-${row.status?.toLowerCase()}`}>{row.status}</span></td><td data-label="Total">{currency(row.total, settings.currency)}</td>
-          <td data-label="Actions"><div className="row-actions"><button onClick={() => setEditor({ record: row })}>Edit</button><button onClick={() => preview(row)}>Preview</button><button onClick={() => download(row)}>PDF</button><button onClick={() => upload(row)}>{row.driveFileId ? 'Replace Drive' : 'Drive'}</button><button onClick={() => convert(row)}>To invoice</button><button className="danger" onClick={async () => { if (confirm('Delete this quotation?')) { await deleteRecord('quotes', row.id); setSelected((current) => current.filter((id) => id !== row.id)); notify('Quotation deleted.'); } }}>Delete</button></div></td>
+          <td><strong>{row.quoteNumber}</strong>{row.driveWebViewLink && <a className="drive-link" href={row.driveWebViewLink} target="_blank" rel="noreferrer">Drive</a>}</td>
+          <td data-label="Date">{dateText(row.createdAt)}</td><td data-label="Expire date">{dateText(row.validUntil)}</td><td data-label="Customer">{row.customerName}</td><td><span className={`status status-${row.status?.toLowerCase()}`}>{row.status}</span></td><td>{currency(row.total, settings.currency)}</td>
+          <td><div className="row-actions"><button onClick={() => setEditor({ record: row })}>Edit</button><button onClick={() => preview(row)}>Preview</button><button onClick={() => download(row)}>PDF</button><button onClick={() => upload(row)}>{row.driveFileId ? 'Replace Drive' : 'Drive'}</button><button onClick={() => convert(row)}>To invoice</button><button className="danger" onClick={async () => { if (confirm('Delete this quotation?')) { await deleteRecord('quotes', row.id); setSelected((current) => current.filter((id) => id !== row.id)); notify('Quotation deleted.'); } }}>Delete</button></div></td>
         </tr>)}</tbody>
       </table></div>
       {!filtered.length && <EmptyState icon="◫" title="No quotations found" text="Create a quotation or change your search." />}

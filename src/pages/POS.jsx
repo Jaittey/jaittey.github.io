@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import { saveRecord } from '../services/database';
 import { completePosSaleV5 } from '../services/commerce';
@@ -28,10 +28,11 @@ const parseModifiers = (text='') => String(text).split(/\r?\n/).map((line)=>line
 
 export default function POS({
   products = [], customers = [], invoices = [], employees = [],
-  posProfile = null, menuItems = [], restaurantOrders = [], serviceJobs = [],
-  settings = {}, user = {}, notify = () => {}, onNavigate = () => {},
+  posProfile = null, posProfileLoading = false, menuItems = [], restaurantOrders = [], serviceJobs = [],
+  settings = {}, user = {}, role = 'user', notify = () => {}, onNavigate = () => {},
 }) {
-  const [profileEditor, setProfileEditor] = useState(!posProfile);
+  const isAdministrator = role === 'administrator';
+  const [profileEditor, setProfileEditor] = useState(false);
   const [profileForm, setProfileForm] = useState({ ...defaultProfile, ...(posProfile || {}) });
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('ALL');
@@ -41,8 +42,8 @@ export default function POS({
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [cashReceived, setCashReceived] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
-  const [discountPercent, setDiscountPercent] = useState(0);
-  const [gstPercent, setGstPercent] = useState(Number(settings.gstPercent || 0));
+  const [discountPercent, setDiscountPercent] = useState(Number(settings.defaultDiscountRate || 0));
+  const [gstPercent, setGstPercent] = useState(Number(settings.defaultGstRate ?? settings.gstPercent ?? 0));
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState(null);
   const [view, setView] = useState('sale');
@@ -61,7 +62,14 @@ export default function POS({
   const [vehicleMakeModel, setVehicleMakeModel] = useState('');
   const [jobNote, setJobNote] = useState('');
 
-  const mode = posProfile?.businessType || profileForm.businessType || '';
+  useEffect(() => {
+    if (!posProfile) return;
+    setProfileForm({ ...defaultProfile, ...posProfile });
+    setLocation(posProfile.defaultLocation || 'Main Location');
+    setDiningOption(posProfile.defaultDiningOption || 'Dine in');
+  }, [posProfile?.updatedAt, posProfile?.businessType]);
+
+  const mode = posProfile?.businessType || (isAdministrator && profileEditor ? profileForm.businessType : '') || '';
   const modeMeta = POS_TYPES.find((item)=>item.id===mode) || POS_TYPES[0];
   const selectedCustomer = customers.find((customer)=>customer.id===customerId);
   const selectedStaff = employees.find((employee)=>employee.id===staffId);
@@ -99,10 +107,16 @@ export default function POS({
   },[cart,discountPercent,gstPercent]);
 
   const saveProfile = async () => {
+    if (!isAdministrator) return notify('Only the Company Administrator can configure the POS workspace.', 'error');
     if(!profileForm.businessType) return notify('Choose how this POS will be used.','error');
-    await saveRecord('posProfiles',{...profileForm,defaultLocation:profileForm.defaultLocation.trim()||'Main Location',configuredAt:new Date().toISOString()},'main');
+    await saveRecord('posProfiles',{
+      ...profileForm,
+      defaultLocation:profileForm.defaultLocation.trim()||'Main Location',
+      configuredAt:new Date().toISOString(),
+      configuredBy:user?.email || user?.displayName || 'Administrator',
+    },'main');
     setLocation(profileForm.defaultLocation.trim()||'Main Location');
-    setProfileEditor(false); notify('POS workspace configured.');
+    setProfileEditor(false); notify('Company POS workspace configured for every authorized user.');
   };
 
   const cartKey = (baseId, modifiers=[]) => `${baseId}:${modifiers.map((x)=>x.name).sort().join('|')}`;
@@ -171,7 +185,38 @@ export default function POS({
       const source=mode==='restaurant'?'RESTAURANT_POS':mode==='garage'?'GARAGE_POS':mode==='wholesale'?'WHOLESALE_POS':'POS';
       const invoiceNumber=`${mode==='restaurant'?'RST':mode==='garage'?'GAR':mode==='wholesale'?'WHL':'POS'}-${today().replaceAll('-','')}-${String(Date.now()).slice(-6)}`;
       const items=cart.map((item)=>({productId:item.productId||'',menuItemId:item.menuItemId||'',name:item.name,quantity:item.qty,unitPrice:safeNumber(item.price),amount:safeNumber(item.price)*item.qty,modifiers:item.modifiers||[],trackStock:item.trackStock!==false,stockImpacts:(item.stockImpacts||[]).map((impact)=>({...impact,quantity:safeNumber(impact.quantity)*item.qty}))}));
-      const invoice={invoiceNumber,source,status:'PAID',posType:mode,customerId:selectedCustomer?.id||'',customerName:selectedCustomer?customerName(selectedCustomer):'Walk-in Customer',staffId:selectedStaff?.id||'',staffName:selectedStaff?.name||user?.displayName||user?.email||'POS operator',operatorId:user?.id||user?.uid||'',location,items,subtotal:totals.subtotal,discount:totals.discount,gst:totals.gst,total:totals.total,paymentMethod,paymentReference:paymentReference.trim(),cashReceived:paymentMethod==='Cash'?safeNumber(cashReceived):totals.total,changeDue:paymentMethod==='Cash'?Math.max(0,safeNumber(cashReceived)-totals.total):0,date:today(),diningOption:mode==='restaurant'?diningOption:'',tableNumber:mode==='restaurant'?tableNumber:'',vehicleRegistration:mode==='garage'?vehicleRegistration.trim().toUpperCase():'',vehicle:mode==='garage'?vehicleMakeModel.trim():''};
+      const invoice={
+        invoiceNumber,source,status:'PAID',posType:mode,
+        customerId:selectedCustomer?.id||'',
+        customerName:selectedCustomer?customerName(selectedCustomer):'Walk-in Customer',
+        contact:selectedCustomer?.phone||selectedCustomer?.contact||'',
+        customerAddress:selectedCustomer?.address||'',
+        customerOrganisation:selectedCustomer?.organisation||'',
+        staffId:selectedStaff?.id||'',
+        staffName:selectedStaff?.name||user?.displayName||user?.email||'POS operator',
+        operatorId:user?.id||user?.uid||'',
+        location,
+        items,
+        subtotal:totals.subtotal,
+        discountRate:safeNumber(discountPercent),
+        discountAmount:totals.discount,
+        discount:totals.discount,
+        taxableAmount:Math.max(0, totals.subtotal - totals.discount),
+        gstRate:safeNumber(gstPercent),
+        gstAmount:totals.gst,
+        gst:totals.gst,
+        total:totals.total,
+        paymentMethod,
+        paymentReference:paymentReference.trim(),
+        cashReceived:paymentMethod==='Cash'?safeNumber(cashReceived):totals.total,
+        changeDue:paymentMethod==='Cash'?Math.max(0,safeNumber(cashReceived)-totals.total):0,
+        documentDate:today(),
+        date:today(),
+        diningOption:mode==='restaurant'?diningOption:'',
+        tableNumber:mode==='restaurant'?tableNumber:'',
+        vehicleRegistration:mode==='garage'?vehicleRegistration.trim().toUpperCase():'',
+        vehicle:mode==='garage'?vehicleMakeModel.trim():'',
+      };
       await completePosSaleV5(invoice,{amount:totals.total,paymentMethod,paymentReference:paymentReference.trim(),paymentDate:today(),status:'PAID',location});
       if(activeRestaurantOrderId)await saveRecord('restaurantOrders',{status:'PAID',paidAt:new Date().toISOString(),invoiceNumber},activeRestaurantOrderId);
       if(mode==='garage'&&vehicleRegistration.trim())await saveRecord('serviceJobs',{jobNumber:`JOB-${String(Date.now()).slice(-8)}`,customerId:selectedCustomer?.id||'',vehicleRegistration:vehicleRegistration.trim().toUpperCase(),vehicleMakeModel:vehicleMakeModel.trim(),complaint:jobNote.trim(),status:'COMPLETED',items,invoiceNumber,total:totals.total,completedAt:new Date().toISOString()});
@@ -193,7 +238,17 @@ export default function POS({
   const openMenuEditor=(item=null)=>{setMenuEditor(item||{});setMenuForm({...menuBlank,...(item||{}),modifiersText:(item?.modifiers||[]).map((x)=>`${x.name}|${safeNumber(x.price)}`).join('\n'),recipe:(item?.recipe||[]).map((x)=>({...x}))});};
   const saveMenu=async()=>{if(!menuForm.name.trim())return notify('Menu item name is required.','error');await saveRecord('menuItems',{...menuForm,name:menuForm.name.trim(),posName:menuForm.posName.trim(),kitchenName:menuForm.kitchenName.trim(),category:menuForm.category.trim()||'Main',price:safeNumber(menuForm.price),modifiers:parseModifiers(menuForm.modifiersText),recipe:(menuForm.recipe||[]).filter((x)=>x.productId&&safeNumber(x.quantity)>0).map((x)=>({productId:x.productId,quantity:safeNumber(x.quantity)}))},menuEditor?.id||null);setMenuEditor(null);notify('Restaurant menu item saved.');};
 
-  if(profileEditor||!mode){return <div className="v5-page"><section className="v5-pos-setup panel"><p className="eyebrow">SB v5.0 ADAPTIVE POS</p><h2>What will this POS be used for?</h2><p>The workspace changes automatically for the way this business actually sells.</p><div className="v5-pos-type-grid">{POS_TYPES.map((type)=><button key={type.id} className={profileForm.businessType===type.id?'active':''} onClick={()=>setProfileForm({...profileForm,businessType:type.id})}><span>{type.icon}</span><strong>{type.title}</strong><small>{type.description}</small></button>)}</div><div className="form-grid v5-pos-setup-fields"><label><span>Default location</span><input value={profileForm.defaultLocation} onChange={e=>setProfileForm({...profileForm,defaultLocation:e.target.value})}/></label>{profileForm.businessType==='restaurant'&&<><label><span>Number of tables</span><input type="number" min="0" value={profileForm.restaurantTables} onChange={e=>setProfileForm({...profileForm,restaurantTables:e.target.value})}/></label><label><span>Default dining option</span><select value={profileForm.defaultDiningOption} onChange={e=>setProfileForm({...profileForm,defaultDiningOption:e.target.value})}><option>Dine in</option><option>Takeaway</option><option>Delivery</option></select></label></>}{profileForm.businessType==='wholesale'&&<label className="checkbox-label"><input type="checkbox" checked={Boolean(profileForm.wholesaleCustomerRequired)} onChange={e=>setProfileForm({...profileForm,wholesaleCustomerRequired:e.target.checked})}/><span>Require customer for wholesale checkout</span></label>}</div><footer className="modal-actions"><button className="button button-primary" onClick={saveProfile}>Create {POS_TYPES.find(x=>x.id===profileForm.businessType)?.title||'POS'} workspace</button></footer></section></div>;}
+  if (posProfileLoading && !posProfile) {
+    return <div className="v5-page"><section className="panel v5-pos-setup"><p className="eyebrow">ADAPTIVE POS</p><h2>Loading company POS configuration…</h2></section></div>;
+  }
+
+  if (!mode && !isAdministrator) {
+    return <div className="v5-page"><section className="panel v5-pos-setup suite-pos-awaiting-admin"><p className="eyebrow">COMPANY POS</p><h2>POS setup is waiting for the Company Administrator</h2><p>Only the Company Administrator chooses whether this company uses Shop / Retail, Restaurant / Café, Garage / Workshop or Wholesale POS. After setup, your POS will open automatically in that company mode.</p></section></div>;
+  }
+
+  if ((profileEditor || !mode) && isAdministrator) {
+    return <div className="v5-page"><section className="v5-pos-setup panel"><p className="eyebrow">SMALL BUSINESS SUITE · ADAPTIVE POS</p><h2>What will this company POS be used for?</h2><p>This setup is company-wide. Managers and Users will automatically see the POS type selected here.</p><div className="v5-pos-type-grid">{POS_TYPES.map((type)=><button key={type.id} className={profileForm.businessType===type.id?'active':''} onClick={()=>setProfileForm({...profileForm,businessType:type.id})}><span>{type.icon}</span><strong>{type.title}</strong><small>{type.description}</small></button>)}</div><div className="form-grid v5-pos-setup-fields"><label><span>Default location</span><input value={profileForm.defaultLocation} onChange={e=>setProfileForm({...profileForm,defaultLocation:e.target.value})}/></label>{profileForm.businessType==='restaurant'&&<><label><span>Number of tables</span><input type="number" min="0" value={profileForm.restaurantTables} onChange={e=>setProfileForm({...profileForm,restaurantTables:e.target.value})}/></label><label><span>Default dining option</span><select value={profileForm.defaultDiningOption} onChange={e=>setProfileForm({...profileForm,defaultDiningOption:e.target.value})}><option>Dine in</option><option>Takeaway</option><option>Delivery</option></select></label></>}{profileForm.businessType==='wholesale'&&<label className="checkbox-label"><input type="checkbox" checked={Boolean(profileForm.wholesaleCustomerRequired)} onChange={e=>setProfileForm({...profileForm,wholesaleCustomerRequired:e.target.checked})}/><span>Require customer for wholesale checkout</span></label>}</div><footer className="modal-actions">{posProfile&&<button className="button button-ghost" onClick={()=>setProfileEditor(false)}>Cancel</button>}<button className="button button-primary" onClick={saveProfile}>{posProfile?'Save company POS settings':`Create ${POS_TYPES.find(x=>x.id===profileForm.businessType)?.title||'POS'} workspace`}</button></footer></section></div>;
+  }
 
   const restaurantTabs=[['sale','Order'],['orders','Open orders'],['menu','Menu'],['kitchen','Kitchen']];
   const garageTabs=[['sale','Checkout'],['jobs','Service jobs'],['stock','Parts stock']];
@@ -201,7 +256,7 @@ export default function POS({
   const tabs=mode==='restaurant'?restaurantTabs:mode==='garage'?garageTabs:standardTabs;
 
   return <div className={`v5-page v5-pos v5-pos-${mode}`}>
-    <section className="v5-hero panel v5-pos-hero"><div><p className="eyebrow">{modeMeta.title.toUpperCase()} POS</p><h2>{modeMeta.icon} Point of Sale</h2><p>{modeMeta.description}</p></div><div className="v5-action-row"><span className="v5-live-dot"><i/>Live · {location}</span><button className="button button-ghost" onClick={()=>{setProfileForm({...defaultProfile,...posProfile});setProfileEditor(true);}}>POS settings</button></div></section>
+    <section className="v5-hero panel v5-pos-hero"><div><p className="eyebrow">{modeMeta.title.toUpperCase()} POS</p><h2>{modeMeta.icon} Point of Sale</h2><p>{modeMeta.description}</p></div><div className="v5-action-row"><span className="v5-live-dot"><i/>Live · {location}</span>{isAdministrator&&<button className="button button-ghost" onClick={()=>{setProfileForm({...defaultProfile,...posProfile});setProfileEditor(true);}}>Company POS settings</button>}</div></section>
     <section className="v5-kpi-grid"><article className="panel"><span>Today</span><strong>{currency(todayRevenue,settings.currency)}</strong><small>{todaySales.length} sale(s)</small></article><article className="panel"><span>Cart</span><strong>{cart.reduce((s,x)=>s+safeNumber(x.qty),0)}</strong><small>{currency(totals.total,settings.currency)}</small></article>{mode==='restaurant'?<article className="panel"><span>Kitchen queue</span><strong>{openKitchenOrders.length}</strong><small>active tickets</small></article>:mode==='garage'?<article className="panel"><span>Open jobs</span><strong>{openJobs.length}</strong><small>work orders</small></article>:<article className="panel"><span>Low stock</span><strong>{products.filter(x=>productTracksStock(x)&&productStock(x)<=safeNumber(x.threshold??5)).length}</strong><small>items</small></article>}</section>
     <nav className="v5-segmented">{tabs.map(([id,label])=><button key={id} className={view===id?'active':''} onClick={()=>{if(id==='kitchen')onNavigate('kitchen');else if(id==='jobs')onNavigate('service-jobs');else setView(id);}}>{label}</button>)}</nav>
 

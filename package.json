@@ -1,7 +1,7 @@
 {
-  "name": "small-business-sb-v4-1-js-fast",
+  "name": "small-business-suite",
   "private": true,
-  "version": "4.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --configLoader runner",

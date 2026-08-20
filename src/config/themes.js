@@ -2,7 +2,7 @@ export const THEMES = [
   {
     id: 'royal',
     name: 'Royal',
-    description: 'Deep navy, refined gold and cool blue details with a refined navy-and-gold business style.',
+    description: 'Deep navy, refined gold and cool blue details.',
     preview: ['#070d19', '#101a2c', '#d8b85e'],
   },
   {
@@ -39,6 +39,35 @@ export const THEMES = [
 
 export const THEME_IDS = THEMES.map((theme) => theme.id);
 
+export const DEFAULT_CUSTOM_APPEARANCE = {
+  enabled: false,
+  accent: '#7c6df2',
+  accent2: '#5d50d7',
+  sidebarBg: '#0f1020',
+  pageBg: '#f5f6fa',
+  surface: '#ffffff',
+  text: '#1d2030',
+  panelOpacity: 92,
+  glassBlur: 16,
+  borderRadius: 18,
+  sidebarWidth: 292,
+  density: 'comfortable',
+};
+
 export const normalizeTheme = (value) => (
   THEME_IDS.includes(value) ? value : 'royal'
 );
+
+export const normalizeCustomAppearance = (value = {}) => {
+  const input = value && typeof value === 'object' ? value : {};
+  return {
+    ...DEFAULT_CUSTOM_APPEARANCE,
+    ...input,
+    enabled: Boolean(input.enabled),
+    panelOpacity: Math.min(100, Math.max(35, Number(input.panelOpacity ?? DEFAULT_CUSTOM_APPEARANCE.panelOpacity))),
+    glassBlur: Math.min(36, Math.max(0, Number(input.glassBlur ?? DEFAULT_CUSTOM_APPEARANCE.glassBlur))),
+    borderRadius: Math.min(30, Math.max(8, Number(input.borderRadius ?? DEFAULT_CUSTOM_APPEARANCE.borderRadius))),
+    sidebarWidth: Math.min(350, Math.max(240, Number(input.sidebarWidth ?? DEFAULT_CUSTOM_APPEARANCE.sidebarWidth))),
+    density: input.density === 'compact' ? 'compact' : 'comfortable',
+  };
+};

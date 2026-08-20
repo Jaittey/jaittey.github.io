@@ -256,6 +256,7 @@ export const ERP_NAV = [
       ['super-offers', 'Custom Offers'],
       ['super-banks', 'Bank Accounts'],
       ['super-verification', 'Payment Verification'],
+      ['super-app-settings', 'App Settings'],
     ],
   },
 ];

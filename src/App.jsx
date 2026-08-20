@@ -15,7 +15,11 @@ import { useSubscriptionRequests } from './hooks/useSubscriptionRequests';
 import { useSettings } from './hooks/useSettings';
 import { useAttendanceSettings } from './hooks/useAttendanceSettings';
 import { useCompanyAssets } from './hooks/useCompanyAssets';
-import { normalizeTheme } from './config/themes';
+import {
+  DEFAULT_CUSTOM_APPEARANCE,
+  normalizeCustomAppearance,
+  normalizeTheme,
+} from './config/themes';
 import { disconnectDrive, isDriveConnected, requestDriveAccess } from './services/drive';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -49,6 +53,7 @@ const ActivityLogs = lazy(() => import('./pages/ActivityLogs'));
 const BusinessOnboarding = lazy(() => import('./pages/BusinessOnboarding'));
 const Subscription = lazy(() => import('./pages/Subscription'));
 const SuperAdmin = lazy(() => import('./pages/SuperAdmin'));
+const SuperAdminAppSettings = lazy(() => import('./pages/SuperAdminAppSettings'));
 
 const SUPER_ADMIN_SECTIONS = {
   'super-admin': 'verification',
@@ -60,6 +65,7 @@ const SUPER_ADMIN_SECTIONS = {
   'super-offers': 'offers',
   'super-banks': 'banks',
   'super-verification': 'verification',
+  'super-app-settings': 'app-settings',
 };
 
 export default function App() {
@@ -95,7 +101,15 @@ export default function App() {
   const [finalSettlementEmployee, setFinalSettlementEmployee] = useState(null);
   const [showBusinessRegistration, setShowBusinessRegistration] = useState(false);
   const [theme, setThemeState] = useState(() => normalizeTheme(localStorage.getItem('sb-theme') || 'royal'));
+  const [customAppearance, setCustomAppearanceState] = useState(() => {
+    try {
+      return normalizeCustomAppearance(JSON.parse(localStorage.getItem('sb-suite-custom-appearance') || '{}'));
+    } catch {
+      return { ...DEFAULT_CUSTOM_APPEARANCE };
+    }
+  });
   const setTheme = (nextTheme) => setThemeState(normalizeTheme(nextTheme));
+  const setCustomAppearance = (next) => setCustomAppearanceState(normalizeCustomAppearance(next));
 
   const settings = useSettings(authenticated && Boolean(businessId), businessId);
   const attendanceSettings = useAttendanceSettings(authenticated && Boolean(businessId) && ['attendance','attendance-settings','pos'].includes(page), businessId);
@@ -142,15 +156,63 @@ export default function App() {
   const platformBankAccounts = useGlobalCollection('platformBankAccounts', '', authenticated && (subscriptionMode || superAdminMode));
   const platformCustomOffers = useGlobalCollection('platformCustomOffers', 'createdAt', authenticated && (subscriptionMode || superAdminMode));
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('sb-theme', theme); }, [theme]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('sb-theme', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const custom = normalizeCustomAppearance(customAppearance);
+    localStorage.setItem('sb-suite-custom-appearance', JSON.stringify(custom));
+    root.dataset.suiteDensity = custom.density;
+
+    const variables = {
+      '--suite-sidebar-width': `${custom.sidebarWidth}px`,
+      '--suite-radius': `${custom.borderRadius}px`,
+      '--suite-glass-blur': `${custom.glassBlur}px`,
+      '--suite-panel-opacity': String(custom.panelOpacity / 100),
+    };
+
+    Object.entries(variables).forEach(([name, value]) => root.style.setProperty(name, value));
+
+    const colorVariables = {
+      '--accent': custom.accent,
+      '--accent-2': custom.accent2,
+      '--suite-accent': custom.accent,
+      '--suite-accent-2': custom.accent2,
+      '--suite-sidebar-bg': custom.sidebarBg,
+      '--suite-page-bg': custom.pageBg,
+      '--suite-surface': custom.surface,
+      '--suite-text': custom.text,
+      '--bg': custom.pageBg,
+      '--surface': custom.surface,
+      '--text': custom.text,
+      '--input': custom.surface,
+    };
+
+    Object.entries(colorVariables).forEach(([name, value]) => {
+      if (custom.enabled) root.style.setProperty(name, value);
+      else root.style.removeProperty(name);
+    });
+  }, [customAppearance]);
   useEffect(() => { if (!toast.message) return undefined; const timer = setTimeout(() => setToast({ message: '', type: 'success' }), 3800); return () => clearTimeout(timer); }, [toast]);
 
   useEffect(() => {
     if (!businessId || !membership) return;
+
+    // Do not bounce an already subscribed user to Subscription while the
+    // workspace is still resolving subscription data after login.
+    const subscriptionResolved = Boolean(subscription?.status);
+    if (role === 'administrator' && !subscriptionResolved) return;
+
     if (!subscriptionActive && role === 'administrator') {
-      if (!['subscription', 'settings', 'users', 'preferences', 'super-admin'].includes(page)) setPage('subscription');
+      if (!['subscription', 'settings', 'users', 'preferences', 'super-admin', 'super-app-settings'].includes(page)) {
+        setPage('subscription');
+      }
       return;
     }
+
     if (!can(page)) {
       const candidates = ['dashboard','pos','invoices','quotes','marketplace','products','attendance','payroll','customers','preferences'];
       setPage(candidates.find((candidate) => can(candidate)) || (role === 'administrator' ? 'subscription' : 'preferences'));
@@ -166,7 +228,7 @@ export default function App() {
   const disconnect = () => { disconnectDrive(); setDriveConnected(false); notify('Google Drive disconnected.'); };
   const confirmLogout = async () => { setLoggingOut(true); try { disconnectDrive(); await logout(); setShowLogoutConfirm(false); } finally { setLoggingOut(false); } };
 
-  if (authLoading || workspace.loading) return <div className="loading-screen"><div className="loader"/><p>Loading Small Business (SB) v5.0 Commerce Suite…</p></div>;
+  if (authLoading || workspace.loading) return <div className="loading-screen"><div className="loader"/><p>Loading Small Business Suite 1.0…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={authError} loading={authLoading}/>;
 
   if (!businessId || showBusinessRegistration) {
@@ -195,12 +257,15 @@ export default function App() {
   const ownSubscriptionRequests = subscriptionRequests.items.filter((request)=>request.businessId===businessId);
 
   const renderPage = () => {
+    if (page === 'super-app-settings') {
+      return <SuperAdminAppSettings notify={notify}/>;
+    }
     if (SUPER_ADMIN_SECTIONS[page]) {
       return <SuperAdmin businesses={globalBusinesses.items} subscriptions={globalSubscriptions.items} requests={subscriptionRequests.items} payments={subscriptionPayments.items} platformUsers={platformUsers.items} plans={platformPlans.items} paymentMethods={paymentMethods.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} currentBusiness={business} initialTab={SUPER_ADMIN_SECTIONS[page]} notify={notify}/>;
     }
     switch (page) {
       case 'subscription': return <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} user={user} role={role} notify={notify}/>;
-      case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} employees={employees.items} attendance={attendance.items} attendanceSettings={attendanceSettings} posProfile={posProfiles.items.find((x)=>x.id==='main')||posProfiles.items[0]||null} menuItems={menuItems.items} restaurantOrders={restaurantOrders.items} serviceJobs={serviceJobs.items} user={user} onNavigate={setPage} {...common}/>;
+      case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} employees={employees.items} attendance={attendance.items} attendanceSettings={attendanceSettings} posProfile={posProfiles.items.find((x)=>x.id==='main')||posProfiles.items[0]||null} menuItems={menuItems.items} restaurantOrders={restaurantOrders.items} serviceJobs={serviceJobs.items} user={user} role={role} posProfileLoading={posProfiles.loading} onNavigate={setPage} {...common}/>;
       case 'invoices': return <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected}/>;
       case 'quotes': return <Quotes quotes={quotes.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} openInvoices={()=>setPage('invoices')}/>;
       case 'billing': return <Billing contracts={billingContracts.items} customers={customers.items} {...common} openInvoices={()=>setPage('invoices')}/>;
@@ -242,7 +307,7 @@ export default function App() {
       case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} attendance={attendance.items} finalSettlements={finalSettlements.items} products={products.items} settings={documentSettings}/>;
       case 'cloud': return <CloudDocuments driveConnected={driveConnected||isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} counts={{invoices:invoices.items.length,quotes:quotes.items.length,payroll:payroll.items.length,contracts:billingContracts.items.length}}/>;
       case 'notifications': return <Notifications invoices={invoices.items} products={products.items} payroll={payroll.items} budgets={budgets.items} billingContracts={billingContracts.items}/>;
-      case 'preferences': return <UserPreferences theme={theme} setTheme={setTheme}/>;
+      case 'preferences': return <UserPreferences theme={theme} setTheme={setTheme} customAppearance={customAppearance} setCustomAppearance={setCustomAppearance}/>;
       case 'settings': return <Settings settings={settings} companyAssets={companyAssets} notify={notify} driveConnected={driveConnected||isDriveConnected()} markDriveConnected={setDriveConnected} planId={planId}/>;
       case 'activity': return <ActivityLogs logs={activityLogs.items}/>;
       case 'users': return <UserManagement users={users.items} notify={notify}/>;
@@ -262,7 +327,7 @@ export default function App() {
     <AppShell page={page} setPage={setPage} user={user} role={role} requestLogout={()=>setShowLogoutConfirm(true)} driveConnected={driveConnected||isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} businessName={settings.businessName||business?.name} companyLogo={companyAssets.companyLogoDataUrl} businesses={workspace.memberships} activeBusinessId={businessId} onBusinessChange={workspace.selectBusiness} onRegisterBusiness={()=>setShowBusinessRegistration(true)} canRegisterBusiness={!workspace.ownedBusinessId} subscription={subscription} canAccess={can} isSuperAdmin={isSuperAdmin}>
       {dataError&&<div className="alert alert-error">{dataError}</div>}<Suspense fallback={<PageLoader/>}>{renderPage()}</Suspense>
     </AppShell>
-    <ConfirmDialog open={showLogoutConfirm} title="Sign out of Small Business?" message="You will need to sign in again to access your company workspaces." confirmLabel="Yes, sign out" danger busy={loggingOut} onCancel={()=>setShowLogoutConfirm(false)} onConfirm={confirmLogout}/>
+    <ConfirmDialog open={showLogoutConfirm} title="Sign out of Small Business Suite?" message="You will need to sign in again to access your company workspaces in Small Business Suite." confirmLabel="Yes, sign out" danger busy={loggingOut} onCancel={()=>setShowLogoutConfirm(false)} onConfirm={confirmLogout}/>
     <Toast message={toast.message} type={toast.type}/>
   </>;
 }

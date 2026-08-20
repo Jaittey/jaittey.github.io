@@ -1,16 +1,21 @@
-# Small Business v4.2 — Employee Registration
+# Small Business Suite 1.0
 
-Patch for the current Small Business JS/Vite/Supabase application.
+Manual upgrade package for the current React/Vite/Supabase Small Business application.
 
-Implements:
-- Administrator adds employee Name + Email + Role + Permissions
-- Membership remains pending with `user_id = NULL`
-- Employee uses Login → Register to create their own password
-- Secure Supabase Edge Function creates the Auth account with email confirmed
-- Function attaches the new Auth UUID to existing `business_memberships`
-- Employee then signs in from the Email tab
-- No public uninvited email registration
-- No confirmation-email dependency
-- Rate-limited activation attempts
+## Key changes
+- Rebuilt left navigation using the supplied navigation design.
+- Fixed invoice / quotation PDFs, including POS-schema line items.
+- Discount, taxable amount and GST now render correctly.
+- Added Super Admin App Settings with protected test-data cleanup.
+- Retired Firebase Migration UI.
+- Active subscribers default to Dashboard without subscription redirect loops.
+- Company Administrator exclusively configures Adaptive POS.
+- Managers/Users automatically use the Administrator's saved company POS mode.
+- Added custom theme colors, transparency, blur, radius, density and sidebar width.
+- Rebranded to Small Business Suite 1.0.
+- New Service Worker cache key prevents stale v5 UI.
 
-See `STEP_BY_STEP_v4_2_EMPLOYEE_REGISTRATION.md`.
+Start with `STEP_BY_STEP_SUITE_1_0.md`.
+
+Important: this ZIP is a complete **Suite 1.0 upgrade package** for the current repository.
+It intentionally does not overwrite the already-working authentication/employee activation files.

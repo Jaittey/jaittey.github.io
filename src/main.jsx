@@ -4,6 +4,7 @@ import App from './App';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import './styles.css';
 import './styles-v5.css';
+import './styles-suite.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

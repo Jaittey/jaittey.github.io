@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import DocumentEditor from '../components/DocumentEditor';
 import EmptyState from '../components/EmptyState';
-import { createBusinessPdf, downloadBlob, previewBlob } from '../services/pdf';
+import { createBusinessPdf, downloadBlob, previewBlob } from '../services/businessPdf';
 import { deleteInvoiceAndRestoreStock, saveInvoiceWithStock, saveRecord } from '../services/database';
 import { uploadBusinessPdf } from '../services/drive';
 import { currency, dateText, makeNumber } from '../utils/format';
@@ -102,19 +102,18 @@ export default function Invoices({ invoices, customers, products, settings, noti
     <section className="panel">
       <div className="responsive-table">
         <table>
-          <thead><tr><th className="select-column"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all visible invoices" /></th><th>Invoice</th><th>Date</th><th>Service period</th><th>Customer</th><th>Status</th><th>Total</th><th>Actions</th></tr></thead>
+          <thead><tr><th className="select-column"><input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all visible invoices" /></th><th>Invoice</th><th>Date</th><th>Customer</th><th>Status</th><th>Total</th><th>Actions</th></tr></thead>
           <tbody>
             {filtered.map((row) => {
               const isPaid = String(row.status || '').toUpperCase() === 'PAID';
               return <tr key={row.id} className={selected.includes(row.id) ? 'selected-row' : ''}>
                 <td className="select-column"><input type="checkbox" checked={selected.includes(row.id)} onChange={() => toggle(row.id)} aria-label={`Select ${row.invoiceNumber}`} /></td>
                 <td data-label="Invoice"><strong>{row.invoiceNumber}</strong>{row.driveWebViewLink && <a className="drive-link" href={row.driveWebViewLink} target="_blank" rel="noreferrer">Drive</a>}</td>
-                <td data-label="Date">{dateText(row.documentDate || row.createdAt)}</td>
-                <td data-label="Service period">{row.servicePeriod || '—'}</td>
-                <td data-label="Customer">{row.customerOrganisation || row.customerName}</td>
-                <td data-label="Status"><span className={`status status-${row.status?.toLowerCase()}`}>{isPaid && <img className="paid-status-icon" src={`${import.meta.env.BASE_URL}images/PAID.png`} alt="" />}{isPaid ? 'PAID' : row.status}</span></td>
-                <td data-label="Total">{currency(row.total, settings.currency)}</td>
-                <td data-label="Actions"><div className="row-actions"><button onClick={() => setEditor({ record: row })}>Edit</button><button onClick={() => preview(row)}>Preview</button><button onClick={() => download(row)}>PDF</button><button onClick={() => upload(row)}>{row.driveFileId ? 'Replace Drive' : 'Drive'}</button><button className="danger" onClick={() => remove(row)}>Delete</button></div></td>
+                <td>{dateText(row.createdAt)}</td>
+                <td>{row.customerName}</td>
+                <td><span className={`status status-${row.status?.toLowerCase()}`}>{isPaid && <img className="paid-status-icon" src={`${import.meta.env.BASE_URL}images/DF7_PAID.png`} alt="" />}{isPaid ? 'PAID' : row.status}</span></td>
+                <td>{currency(row.total, settings.currency)}</td>
+                <td><div className="row-actions"><button onClick={() => setEditor({ record: row })}>Edit</button><button onClick={() => preview(row)}>Preview</button><button onClick={() => download(row)}>PDF</button><button onClick={() => upload(row)}>{row.driveFileId ? 'Replace Drive' : 'Drive'}</button><button className="danger" onClick={() => remove(row)}>Delete</button></div></td>
               </tr>;
             })}
           </tbody>
