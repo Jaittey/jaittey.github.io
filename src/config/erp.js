@@ -21,6 +21,13 @@ export const MANAGER_FULL_PERMISSIONS = [
   'customers',
   'contracts',
   'statements',
+  'products',
+  'suppliers',
+  'purchase-orders',
+  'marketplace',
+  'kitchen',
+  'service-jobs',
+  'assets',
   'employees',
   'hr-records',
   'payroll',
@@ -32,9 +39,6 @@ export const MANAGER_FULL_PERMISSIONS = [
   'expenses',
   'budget',
   'tax',
-  'products',
-  'suppliers',
-  'assets',
   'reports',
   'cloud',
   'notifications',
@@ -68,23 +72,36 @@ export const PERMISSION_GROUPS = [
   },
   {
     id: 'sales',
-    label: 'Sales & POS Dashboard',
-    description: 'Point of sale, billing, customers and inventory workflows.',
+    label: 'Sales & Commerce',
+    description: 'Point of sale, customer sales, billing and online orders.',
     pages: [
-      ['pos', 'POS System'],
+      ['pos', 'Adaptive POS System'],
       ['invoices', 'Invoices'],
       ['quotes', 'Quotations'],
       ['billing', 'Recurring Billing'],
       ['payments', 'Payments'],
       ['customers', 'Customers'],
-      ['products', 'Inventory & Assets'],
+      ['marketplace', 'Marketplace Orders'],
       ['contracts', 'Contracts'],
       ['statements', 'Customer Statements'],
     ],
   },
   {
+    id: 'operations',
+    label: 'Inventory & Operations',
+    description: 'Goods, stock, purchasing, restaurant and service operations.',
+    pages: [
+      ['products', 'Inventory'],
+      ['suppliers', 'Suppliers'],
+      ['purchase-orders', 'Purchase Orders'],
+      ['kitchen', 'Restaurant Kitchen'],
+      ['service-jobs', 'Garage Service Jobs'],
+      ['assets', 'Company Assets'],
+    ],
+  },
+  {
     id: 'employees',
-    label: 'Employee Management Dashboard',
+    label: 'Employee Management',
     description: 'Employee profiles, attendance, payroll and settlements.',
     pages: [
       ['employees', 'Employees'],
@@ -97,7 +114,7 @@ export const PERMISSION_GROUPS = [
   },
   {
     id: 'finance',
-    label: 'Financial Management Dashboard',
+    label: 'Financial Management',
     description: 'Finance overview, expenses, budgets and tax reports.',
     pages: [
       ['finance', 'Finance Overview'],
@@ -126,12 +143,10 @@ export const getEffectivePermissions = (
 ) => {
   const normalized = normalizeRole(role);
   if (normalized === 'administrator') return ['*'];
-
   const defaults = DEFAULT_ROLE_PERMISSIONS[normalized] || [];
   const selected = customPermissions && Array.isArray(permissions)
     ? permissions.filter(Boolean)
     : defaults;
-
   return [...new Set([...selected, 'preferences'])];
 };
 
@@ -152,18 +167,9 @@ export const getDefaultPage = (
 ) => {
   const allowed = getEffectivePermissions(role, permissions, customPermissions);
   if (allowed.includes('*') || allowed.includes('dashboard')) return 'dashboard';
-
   return [
-    'pos',
-    'invoices',
-    'quotes',
-    'attendance',
-    'payroll',
-    'customers',
-    'products',
-    'employees',
-    'reports',
-    'preferences',
+    'pos','invoices','quotes','marketplace','products','attendance','payroll',
+    'customers','employees','reports','preferences',
   ].find((page) => allowed.includes(page)) || 'preferences';
 };
 
@@ -171,23 +177,36 @@ export const ERP_NAV = [
   { id: 'dashboard', label: 'Main Dashboard', icon: '▦', page: 'dashboard' },
   {
     id: 'sales',
-    label: 'Sales & POS Dashboard',
+    label: 'Sales & Commerce',
     icon: '▤',
     children: [
-      ['pos', 'POS System'],
+      ['pos', 'Adaptive POS System'],
       ['invoices', 'Invoices'],
       ['quotes', 'Quotations'],
       ['billing', 'Recurring Billing'],
       ['payments', 'Payments'],
       ['customers', 'Customers'],
-      ['products', 'Inventory & Assets'],
+      ['marketplace', 'Marketplace Orders'],
       ['contracts', 'Contracts'],
       ['statements', 'Customer Statements'],
     ],
   },
   {
+    id: 'operations',
+    label: 'Inventory & Operations',
+    icon: '□',
+    children: [
+      ['products', 'Inventory'],
+      ['suppliers', 'Suppliers'],
+      ['purchase-orders', 'Purchase Orders'],
+      ['kitchen', 'Restaurant Kitchen'],
+      ['service-jobs', 'Garage Service Jobs'],
+      ['assets', 'Company Assets'],
+    ],
+  },
+  {
     id: 'hr',
-    label: 'Employee Management Dashboard',
+    label: 'Employee Management',
     icon: '♙',
     children: [
       ['employees', 'Employees'],
@@ -200,7 +219,7 @@ export const ERP_NAV = [
   },
   {
     id: 'finance-group',
-    label: 'Financial Management Dashboard',
+    label: 'Financial Management',
     icon: '◈',
     children: [
       ['finance', 'Finance Overview'],

@@ -1,0 +1,33 @@
+REPLACE
+src/App.jsx
+src/main.jsx
+src/config/erp.js
+src/config/plans.js
+src/pages/POS.jsx
+src/pages/Products.jsx
+public/sw.js
+
+ADD
+src/styles-v5.css
+src/services/commerce.js
+src/pages/Suppliers.jsx
+src/pages/PurchaseOrders.jsx
+src/pages/Marketplace.jsx
+src/pages/KitchenDisplay.jsx
+src/pages/ServiceJobs.jsx
+src/pages/HRRecords.jsx
+src/pages/Assets.jsx
+backend/sb_v5_0_commerce_upgrade.sql
+README_V5_0.md
+STEP_BY_STEP_V5_0.md
+FILE_MANIFEST_V5_0.txt
+
+KEEP CURRENT
+src/hooks/useAuth.js
+src/pages/UserManagement.jsx
+src/styles.css
+package.json
+package-lock.json
+vite.config.js
+.github/workflows/*
+existing Supabase employee activation Edge Function

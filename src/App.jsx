@@ -23,6 +23,13 @@ const POS = lazy(() => import('./pages/POS'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Quotes = lazy(() => import('./pages/Quotes'));
 const Products = lazy(() => import('./pages/Products'));
+const Suppliers = lazy(() => import('./pages/Suppliers'));
+const PurchaseOrders = lazy(() => import('./pages/PurchaseOrders'));
+const Marketplace = lazy(() => import('./pages/Marketplace'));
+const KitchenDisplay = lazy(() => import('./pages/KitchenDisplay'));
+const ServiceJobs = lazy(() => import('./pages/ServiceJobs'));
+const HRRecords = lazy(() => import('./pages/HRRecords'));
+const Assets = lazy(() => import('./pages/Assets'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const Customers = lazy(() => import('./pages/Customers'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -94,13 +101,25 @@ export default function App() {
   const attendanceSettings = useAttendanceSettings(authenticated && Boolean(businessId) && ['attendance','attendance-settings','pos'].includes(page), businessId);
   const companyAssets = useCompanyAssets(authenticated && Boolean(businessId), businessId);
 
-  const invoices = useLiveCollection('invoices', 'createdAt', can('invoices') && ['dashboard','invoices','payments','customers','reports','cloud','notifications','pos'].includes(page), businessId);
+  const invoices = useLiveCollection('invoices', 'createdAt', can('invoices') && ['dashboard','invoices','payments','customers','reports','cloud','notifications','pos','marketplace'].includes(page), businessId);
   const quotes = useLiveCollection('quotes', 'createdAt', can('quotes') && ['quotes','reports','cloud'].includes(page), businessId);
-  const products = useLiveCollection('products', 'createdAt', can('products') && ['dashboard','products','invoices','quotes','reports','notifications','pos'].includes(page), businessId);
+  const products = useLiveCollection('products', 'createdAt', can('products') && ['dashboard','products','invoices','quotes','reports','notifications','pos','purchase-orders','marketplace','service-jobs'].includes(page), businessId);
+  const stockMovements = useLiveCollection('stockMovements', 'createdAt', can('products') && ['products','purchase-orders','marketplace','pos'].includes(page), businessId);
+  const suppliers = useLiveCollection('suppliers', 'createdAt', can('suppliers') && ['suppliers','purchase-orders','products'].includes(page), businessId);
+  const purchaseOrders = useLiveCollection('purchaseOrders', 'createdAt', can('purchase-orders') && ['purchase-orders','suppliers','products'].includes(page), businessId);
+  const salesChannels = useLiveCollection('salesChannels', 'createdAt', can('marketplace') && page === 'marketplace', businessId);
+  const marketplaceOrders = useLiveCollection('marketplaceOrders', 'createdAt', can('marketplace') && ['marketplace','dashboard'].includes(page), businessId);
+  const posProfiles = useLiveCollection('posProfiles', 'updatedAt', can('pos') && page === 'pos', businessId);
+  const menuItems = useLiveCollection('menuItems', 'createdAt', (can('pos') || can('kitchen')) && ['pos','kitchen'].includes(page), businessId);
+  const restaurantOrders = useLiveCollection('restaurantOrders', 'createdAt', (can('pos') || can('kitchen')) && ['pos','kitchen'].includes(page), businessId);
+  const serviceJobs = useLiveCollection('serviceJobs', 'createdAt', (can('pos') || can('service-jobs')) && ['pos','service-jobs'].includes(page), businessId);
+  const hrRecords = useLiveCollection('hrRecords', 'effectiveDate', can('hr-records') && ['hr-records','employees'].includes(page), businessId);
+  const assets = useLiveCollection('assets', 'createdAt', can('assets') && page === 'assets', businessId);
+
   const expenses = useLiveCollection('expenses', 'createdAt', can('expenses') && ['dashboard','expenses','reports'].includes(page), businessId);
-  const customers = useLiveCollection('customers', 'createdAt', can('customers') && ['dashboard','customers','invoices','quotes','billing','reports','pos'].includes(page), businessId);
+  const customers = useLiveCollection('customers', 'createdAt', can('customers') && ['dashboard','customers','invoices','quotes','billing','reports','pos','marketplace','service-jobs'].includes(page), businessId);
   const billingContracts = useLiveCollection('billingContracts', 'createdAt', can('billing') && ['billing','cloud','notifications'].includes(page), businessId);
-  const employees = useLiveCollection('employees', 'createdAt', can('employees') && ['dashboard','employees','payroll','final-settlements','attendance','reports','pos'].includes(page), businessId);
+  const employees = useLiveCollection('employees', 'createdAt', can('employees') && ['dashboard','employees','hr-records','payroll','final-settlements','attendance','reports','pos','service-jobs','assets'].includes(page), businessId);
   const payroll = useLiveCollection('payroll', 'createdAt', can('payroll') && ['dashboard','payroll','final-settlements','attendance','reports','cloud','notifications'].includes(page), businessId);
   const salarySlips = useLiveCollection('salarySlips', 'createdAt', can('payroll') && ['payroll','final-settlements'].includes(page), businessId);
   const attendance = useLiveCollection('attendance', 'date', can('attendance') && ['attendance','payroll','final-settlements','reports','pos'].includes(page), businessId);
@@ -133,7 +152,7 @@ export default function App() {
       return;
     }
     if (!can(page)) {
-      const candidates = ['dashboard','invoices','quotes','attendance','payroll','customers','products','preferences'];
+      const candidates = ['dashboard','pos','invoices','quotes','marketplace','products','attendance','payroll','customers','preferences'];
       setPage(candidates.find((candidate) => can(candidate)) || (role === 'administrator' ? 'subscription' : 'preferences'));
     }
   }, [businessId, membership?.role, accessPermissions.join('|'), customPermissions, planId, subscription?.status, page, isSuperAdmin]);
@@ -147,7 +166,7 @@ export default function App() {
   const disconnect = () => { disconnectDrive(); setDriveConnected(false); notify('Google Drive disconnected.'); };
   const confirmLogout = async () => { setLoggingOut(true); try { disconnectDrive(); await logout(); setShowLogoutConfirm(false); } finally { setLoggingOut(false); } };
 
-  if (authLoading || workspace.loading) return <div className="loading-screen"><div className="loader"/><p>Loading Small Business (SB) v4.1 JS Fast…</p></div>;
+  if (authLoading || workspace.loading) return <div className="loading-screen"><div className="loader"/><p>Loading Small Business (SB) v5.0 Commerce Suite…</p></div>;
   if (!user) return <LoginPage loginGoogle={loginGoogle} loginEmail={loginEmail} registerEmail={registerEmail} error={authError} loading={authLoading}/>;
 
   if (!businessId || showBusinessRegistration) {
@@ -181,12 +200,13 @@ export default function App() {
     }
     switch (page) {
       case 'subscription': return <Subscription business={business} subscription={subscription} requests={ownSubscriptionRequests} plans={platformPlans.items} bankAccounts={platformBankAccounts.items} customOffers={platformCustomOffers.items} user={user} role={role} notify={notify}/>;
-      case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} employees={employees.items} attendance={attendance.items} attendanceSettings={attendanceSettings} user={user} onNavigate={setPage} {...common}/>;
+      case 'pos': return <POS products={products.items} customers={customers.items} invoices={invoices.items} employees={employees.items} attendance={attendance.items} attendanceSettings={attendanceSettings} posProfile={posProfiles.items.find((x)=>x.id==='main')||posProfiles.items[0]||null} menuItems={menuItems.items} restaurantOrders={restaurantOrders.items} serviceJobs={serviceJobs.items} user={user} onNavigate={setPage} {...common}/>;
       case 'invoices': return <Invoices invoices={invoices.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected}/>;
       case 'quotes': return <Quotes quotes={quotes.items} customers={customers.items} products={products.items} {...common} markDriveConnected={setDriveConnected} openInvoices={()=>setPage('invoices')}/>;
       case 'billing': return <Billing contracts={billingContracts.items} customers={customers.items} {...common} openInvoices={()=>setPage('invoices')}/>;
       case 'payments': return <Payments payments={payments.items} invoices={invoices.items} {...common}/>;
       case 'customers': return <Customers customers={customers.items} invoices={invoices.items} {...common}/>;
+      case 'marketplace': return <Marketplace channels={salesChannels.items} orders={marketplaceOrders.items} products={products.items} customers={customers.items} {...common}/>;
       case 'contracts': return hub('CRM','Contracts','Manage service agreements and contract renewal workflows.',[
         {title:'Recurring contracts',icon:'↻',description:'Active monthly service contracts and recurring billing.',features:['Contract number','Start and end dates','Monthly invoice generation','Duplicate protection'],ready:true,page:'billing'},
         {title:'Renewal alerts',icon:'!',description:'Contract expiry notifications are calculated automatically.',features:['Expiry monitoring','Notifications','Service periods'],ready:true,page:'notifications'},
@@ -195,11 +215,13 @@ export default function App() {
         {title:'Payment history',icon:'↘',description:'All payments recorded against customer invoices.',features:['Invoice references','Payment methods','Outstanding balances'],ready:true,page:'payments'},
         {title:'Customer history',icon:'◎',description:'Customer records and invoice history.',features:['Contact details','Notes','Invoice totals'],ready:true,page:'customers'},
       ]);
+      case 'products': return <Products products={products.items} suppliers={suppliers.items} stockMovements={stockMovements.items} {...common}/>;
+      case 'suppliers': return <Suppliers suppliers={suppliers.items} purchaseOrders={purchaseOrders.items} notify={notify}/>;
+      case 'purchase-orders': return <PurchaseOrders purchaseOrders={purchaseOrders.items} suppliers={suppliers.items} products={products.items} {...common}/>;
+      case 'kitchen': return <KitchenDisplay orders={restaurantOrders.items} notify={notify}/>;
+      case 'service-jobs': return <ServiceJobs jobs={serviceJobs.items} customers={customers.items} employees={employees.items} {...common} onOpenPOS={()=>setPage('pos')}/>;
       case 'employees': return <Employees employees={employees.items} {...common} role={role} openPayroll={(employee)=>{setPayrollEmployee(employee);setPage('payroll');}} openFinalSettlement={(employee)=>{setFinalSettlementEmployee(employee);setPage('payroll');}}/>;
-      case 'hr-records': return hub('EMPLOYEE MANAGEMENT','HR Records','Employee lifecycle and document framework.',[
-        {title:'Employee profiles',icon:'♙',description:'Personal, emergency, banking and employment details.',features:['National ID','Designation','Department','Joining date'],ready:true,page:'employees'},
-        {title:'Promotions & transfers',icon:'↗',description:'Structured HR history and attachments.',features:['Promotions','Transfers','Resignations','Employee notes'],ready:false},
-      ]);
+      case 'hr-records': return <HRRecords records={hrRecords.items} employees={employees.items} notify={notify}/>;
       case 'payroll': return <Payroll payroll={payroll.items} salarySlips={salarySlips.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialEmployee={payrollEmployee} clearInitialEmployee={()=>setPayrollEmployee(null)} initialFinalEmployee={finalSettlementEmployee} clearInitialFinalEmployee={()=>setFinalSettlementEmployee(null)}/>;
       case 'final-settlements': return <Payroll payroll={payroll.items} salarySlips={salarySlips.items} attendance={attendance.items} payrollPeriods={payrollPeriods.items} finalSettlements={finalSettlements.items} employees={employees.items} {...common} role={role} markDriveConnected={setDriveConnected} initialView="settlements"/>;
       case 'attendance': return <Attendance attendance={attendance.items} employees={employees.items} payroll={payroll.items} payrollPeriods={payrollPeriods.items} attendanceSettings={attendanceSettings} {...common} role={role} onOpenSettings={()=>setPage('attendance-settings')}/>;
@@ -216,9 +238,7 @@ export default function App() {
         {title:'GST settings',icon:'%',description:'GST registration, TIN and default rates are controlled by the Company Administrator.',features:['TIN','GST percentage','Tax invoice title'],ready:true},
         {title:'GST report',icon:'⌁',description:'Export invoice and tax data for review.',features:['GST amounts','Taxable totals','CSV export'],ready:true,page:'reports'},
       ]);
-      case 'products': return <Products products={products.items} {...common}/>;
-      case 'suppliers': return hub('INVENTORY & ASSETS','Suppliers','Supplier and purchase-history workspace.',[{title:'Supplier directory',icon:'◎',description:'Supplier contacts, purchase history and agreements.',features:['Supplier details','Purchase records','Notes'],ready:false}]);
-      case 'assets': return hub('INVENTORY & ASSETS','Company Assets','Track office equipment, uniforms, vehicles and assignments.',[{title:'Asset register',icon:'□',description:'Company asset ownership and employee assignment.',features:['Asset number','Condition','Assigned employee','Maintenance'],ready:false}]);
+      case 'assets': return <Assets assets={assets.items} employees={employees.items} settings={documentSettings} notify={notify}/>;
       case 'reports': return <Reports invoices={invoices.items} quotes={quotes.items} expenses={expenses.items} customers={customers.items} employees={employees.items} payroll={payroll.items} attendance={attendance.items} finalSettlements={finalSettlements.items} products={products.items} settings={documentSettings}/>;
       case 'cloud': return <CloudDocuments driveConnected={driveConnected||isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} counts={{invoices:invoices.items.length,quotes:quotes.items.length,payroll:payroll.items.length,contracts:billingContracts.items.length}}/>;
       case 'notifications': return <Notifications invoices={invoices.items} products={products.items} payroll={payroll.items} budgets={budgets.items} billingContracts={billingContracts.items}/>;
@@ -230,8 +250,13 @@ export default function App() {
     }
   };
 
-  const sources=[invoices,quotes,products,expenses,customers,billingContracts,employees,payroll,salarySlips,attendance,payrollPeriods,finalSettlements,budgets,payments,users,activityLogs];
-  const dataError=sources.find((source)=>source.error)?.error||workspace.error||subscriptionRequests.error;
+  const sources = [
+    invoices, quotes, products, stockMovements, suppliers, purchaseOrders, salesChannels,
+    marketplaceOrders, posProfiles, menuItems, restaurantOrders, serviceJobs, hrRecords, assets,
+    expenses, customers, billingContracts, employees, payroll, salarySlips, attendance,
+    payrollPeriods, finalSettlements, budgets, payments, users, activityLogs,
+  ];
+  const dataError = sources.find((source)=>source.error)?.error || workspace.error || subscriptionRequests.error;
 
   return <>
     <AppShell page={page} setPage={setPage} user={user} role={role} requestLogout={()=>setShowLogoutConfirm(true)} driveConnected={driveConnected||isDriveConnected()} connectDrive={connectDrive} disconnectDrive={disconnect} businessName={settings.businessName||business?.name} companyLogo={companyAssets.companyLogoDataUrl} businesses={workspace.memberships} activeBusinessId={businessId} onBusinessChange={workspace.selectBusiness} onRegisterBusiness={()=>setShowBusinessRegistration(true)} canRegisterBusiness={!workspace.ownedBusinessId} subscription={subscription} canAccess={can} isSuperAdmin={isSuperAdmin}>
