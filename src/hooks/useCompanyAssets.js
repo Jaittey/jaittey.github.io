@@ -5,12 +5,14 @@ const emptyAssets = {
   companyLogoDataUrl: '',
   companyStampDataUrl: '',
   managerSignatureDataUrl: '',
+  paidStampDataUrl: '',
 };
 
 const fieldById = {
   companyLogo: 'companyLogoDataUrl',
   companyStamp: 'companyStampDataUrl',
   managerSignature: 'managerSignatureDataUrl',
+  paidStamp: 'paidStampDataUrl',
 };
 
 const blobToDataUrl = (blob) => new Promise((resolve, reject) => {

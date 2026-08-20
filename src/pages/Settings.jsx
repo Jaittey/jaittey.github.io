@@ -31,7 +31,7 @@ const ASSET_CONFIG = [
     id: 'companyStamp',
     field: 'companyStampDataUrl',
     title: 'Company Stamp',
-    description: 'Displayed beside authorized signature areas on generated documents.',
+    description: 'Official company stamp used beside authorized signature areas.',
     accept: 'image/png,image/webp,image/jpeg',
     maxWidth: 800,
     maxHeight: 800,
@@ -44,6 +44,16 @@ const ASSET_CONFIG = [
     accept: 'image/png,image/webp,image/jpeg',
     maxWidth: 1100,
     maxHeight: 450,
+  },
+  {
+    id: 'paidStamp',
+    field: 'paidStampDataUrl',
+    title: 'Paid Stamp',
+    description: 'Displayed only on documents that are marked PAID. A built-in SB paid stamp is used until you upload your own.',
+    accept: 'image/png,image/webp,image/jpeg',
+    maxWidth: 800,
+    maxHeight: 800,
+    defaultSrc: `${import.meta.env.BASE_URL}images/documents/paid-stamp.png`,
   },
 ];
 
@@ -210,7 +220,6 @@ export default function Settings({
     }
   };
 
-
   return (
     <div className="administration-page">
       <section className="administration-hero panel">
@@ -225,7 +234,7 @@ export default function Settings({
       <nav className="settings-tabs" aria-label="Administration sections">
         {[
           ['company', 'Company & System'],
-          ['branding', 'Logo, Stamp & Signature'],
+          ['branding', 'Logo, Stamps & Signature'],
           ...(hasPlatinum(planId) ? [['backup', 'Backup & Restore']] : []),
           ['reset', 'Reset'],
         ].map(([id, label]) => (
@@ -295,20 +304,25 @@ export default function Settings({
           <div className="panel-heading">
             <div>
               <p className="eyebrow">DOCUMENT BRANDING</p>
-              <h2>Company Logo, Company Stamp and Manager Signature</h2>
+              <h2>Company Logo, Company Stamp, Manager Signature and Paid Stamp</h2>
+              <p className="page-subtitle">
+                Upload each document asset separately. The Paid Stamp is shown only when a document is marked PAID.
+              </p>
             </div>
           </div>
           <div className="asset-upload-grid">
             {ASSET_CONFIG.map((asset) => {
               const dataUrl = companyAssets?.[asset.field] || '';
+              const previewUrl = dataUrl || asset.defaultSrc || '';
               return (
                 <article className="asset-upload-card" key={asset.id}>
                   <div className={`asset-preview ${asset.id}`}>
-                    {dataUrl ? <img src={dataUrl} alt={asset.title} /> : <span>＋</span>}
+                    {previewUrl ? <img src={previewUrl} alt={asset.title} /> : <span>＋</span>}
                   </div>
                   <div className="asset-upload-copy">
                     <h3>{asset.title}</h3>
                     <p>{asset.description}</p>
+                    {!dataUrl && asset.defaultSrc && <small className="asset-default-note">Built-in default is active.</small>}
                   </div>
                   <label className="button button-secondary asset-file-button">
                     {assetBusy === asset.id ? 'Processing…' : dataUrl ? 'Replace image' : 'Upload image'}
@@ -325,11 +339,10 @@ export default function Settings({
             })}
           </div>
           <div className="alert alert-info">
-            Images are resized and optimized before being stored. Transparent PNG or WebP files are recommended for the stamp and signature.
+            Images are resized and optimized before being stored. Transparent PNG or WebP files are recommended for stamps and signatures.
           </div>
         </section>
       )}
-
 
       {tab === 'backup' && (
         <section className="backup-layout">

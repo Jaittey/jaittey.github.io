@@ -19,14 +19,14 @@ const fetchImageAsDataUrl = (url) => fetch(url)
 
 const loadFallbackLogo = () => {
   if (!fallbackLogoPromise) {
-    fallbackLogoPromise = fetchImageAsDataUrl(`${import.meta.env.BASE_URL}images/SB_Logo.png`);
+    fallbackLogoPromise = fetchImageAsDataUrl(`${import.meta.env.BASE_URL}images/suite/sb-icon-black.png`);
   }
   return fallbackLogoPromise;
 };
 
 const loadFallbackPaid = () => {
   if (!fallbackPaidPromise) {
-    fallbackPaidPromise = fetchImageAsDataUrl(`${import.meta.env.BASE_URL}images/PAID.png`);
+    fallbackPaidPromise = fetchImageAsDataUrl(`${import.meta.env.BASE_URL}images/documents/paid-stamp.png`);
   }
   return fallbackPaidPromise;
 };
@@ -194,47 +194,48 @@ const addFooter = (doc, settings = {}) => {
 };
 
 const addAuthorization = async (doc, record, settings, startY) => {
-  let y = ensureRoom(doc, Math.max(startY, 220), 48);
-  const pageHeight = 297;
+  let y = ensureRoom(doc, Math.max(startY, 205), 62);
 
-  if (y < 220) y = 220;
-  if (y > pageHeight - 55) {
+  if (y > 232) {
     doc.addPage();
-    y = 222;
+    y = 205;
   }
+  if (y < 205) y = 205;
 
   const signature = settings.managerSignatureDataUrl;
   const companyStamp = settings.companyStampDataUrl;
   const paid = String(record.status || record.paymentStatus || '').toUpperCase() === 'PAID';
 
-  if (signature) addImageContained(doc, signature, 135, y, 42, 16, 'suite-signature');
-
-  let stamp = companyStamp;
-  if (paid && !stamp) {
-    try { stamp = await loadFallbackPaid(); } catch { stamp = ''; }
+  let paidStamp = '';
+  if (paid) {
+    paidStamp = settings.paidStampDataUrl || '';
+    if (!paidStamp) {
+      try { paidStamp = await loadFallbackPaid(); } catch { paidStamp = ''; }
+    }
   }
 
-  if (stamp) {
-    addImageContained(
-      doc,
-      stamp,
-      162,
-      paid ? y - 19 : y - 12,
-      paid ? 28 : 24,
-      paid ? 28 : 24,
-      paid ? 'suite-paid-stamp' : 'suite-company-stamp',
-    );
+  // Company stamp and paid stamp are intentionally separate document assets.
+  if (companyStamp) {
+    addImageContained(doc, companyStamp, 126, y, 24, 24, 'suite-company-stamp');
+  }
+
+  if (paidStamp) {
+    addImageContained(doc, paidStamp, 164, y - 3, 28, 28, 'suite-paid-stamp');
+  }
+
+  if (signature) {
+    addImageContained(doc, signature, 136, y + 22, 42, 14, 'suite-signature');
   }
 
   doc.setDrawColor(120, 126, 136);
-  doc.line(132, y + 18, 191, y + 18);
+  doc.line(132, y + 40, 191, y + 40);
   doc.setTextColor(55, 62, 73);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(settings.authorizedSignatory || 'Authorized by', 132, y + 23);
-  if (settings.designation) doc.text(settings.designation, 132, y + 27);
+  doc.text(settings.authorizedSignatory || 'Authorized by', 132, y + 45);
+  if (settings.designation) doc.text(settings.designation, 132, y + 49);
 
-  return y + 31;
+  return y + 53;
 };
 
 export async function createBusinessPdf(kind, record = {}, settings = {}) {
@@ -254,7 +255,6 @@ export async function createBusinessPdf(kind, record = {}, settings = {}) {
     'DRAFT',
   );
 
-  // Header
   doc.setFillColor(247, 244, 237);
   doc.rect(0, 0, 210, 42, 'F');
   doc.setFillColor(21, 79, 111);
@@ -289,7 +289,6 @@ export async function createBusinessPdf(kind, record = {}, settings = {}) {
     doc.text(`Valid until: ${dateText(record.validUntil)}`, 195, 36, { align: 'right' });
   }
 
-  // Seller + customer. Start below header and make both columns independent.
   const sellerEnd = writeBlock(
     doc,
     settings.businessName || 'BUSINESS',
@@ -380,7 +379,6 @@ export async function createBusinessPdf(kind, record = {}, settings = {}) {
     ) + 2;
   }
 
-  // Item table: explicitly support both document-editor and POS invoice schemas.
   autoTable(doc, {
     startY: y,
     head: [['Description / Deliverable', 'Qty', 'Unit Price', 'Amount']],

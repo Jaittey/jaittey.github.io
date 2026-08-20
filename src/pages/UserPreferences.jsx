@@ -8,11 +8,15 @@ import {
 const COLOR_FIELDS = [
   ['accent', 'Primary accent'],
   ['accent2', 'Secondary accent'],
-  ['sidebarBg', 'Sidebar background'],
+  ['sidebarBg', 'Navigation base color'],
   ['pageBg', 'Page background'],
   ['surface', 'Card / surface'],
   ['text', 'Primary text'],
 ];
+
+const darkNavigationPreview = (color) => (
+  `color-mix(in srgb, ${color} 38%, #050713 62%)`
+);
 
 export default function UserPreferences({
   theme,
@@ -32,11 +36,24 @@ export default function UserPreferences({
     setCustomAppearance?.(next);
   };
 
+  const applyPreset = (themeId) => {
+    setTheme(themeId);
+    if (draft.enabled) {
+      const next = normalizeCustomAppearance({ ...draft, enabled: false });
+      setDraft(next);
+      setCustomAppearance?.(next);
+    }
+  };
+
   const resetCustom = () => {
     const next = { ...DEFAULT_CUSTOM_APPEARANCE };
     setDraft(next);
     setCustomAppearance?.(next);
   };
+
+  const previewNavigation = draft.enabled
+    ? darkNavigationPreview(draft.sidebarBg)
+    : selected.navigation;
 
   return (
     <div className="user-settings-page suite-theme-settings">
@@ -45,14 +62,15 @@ export default function UserPreferences({
           <p className="eyebrow">APPEARANCE</p>
           <h2>Make Small Business Suite yours</h2>
           <p>
-            Choose a preset or build a custom workspace with your own colors,
-            transparency, blur, radius, navigation width and density.
+            Choose a complete preset or build a custom workspace. Every preset now
+            changes the page, cards, buttons and navigation together. Navigation
+            always stays in a darker matching shade for readability.
           </p>
         </div>
         <div className="settings-current-theme">
           <span>Current preset</span>
           <strong>{selected.name}</strong>
-          <small>{draft.enabled ? 'Custom overrides enabled' : 'Preset colors active'}</small>
+          <small>{draft.enabled ? 'Custom overrides enabled' : 'Complete preset active'}</small>
         </div>
       </section>
 
@@ -60,8 +78,10 @@ export default function UserPreferences({
         <div className="panel-heading">
           <div>
             <p className="eyebrow">PRESETS</p>
-            <h2>Workspace themes</h2>
-            <p className="page-subtitle">Selecting a preset updates the base workspace immediately.</p>
+            <h2>Complete application themes</h2>
+            <p className="page-subtitle">
+              Selecting a preset applies its matching colors to the workspace and navigation immediately.
+            </p>
           </div>
         </div>
 
@@ -70,17 +90,28 @@ export default function UserPreferences({
             <button
               type="button"
               key={item.id}
-              className={`theme-card ${theme === item.id ? 'active' : ''}`}
-              onClick={() => setTheme(item.id)}
+              className={`theme-card ${theme === item.id && !draft.enabled ? 'active' : ''}`}
+              onClick={() => applyPreset(item.id)}
             >
               <span className="theme-preview" aria-hidden="true">
-                {item.preview.map((color) => <i key={color} style={{ background: color }} />)}
+                {item.preview.map((color, index) => (
+                  <i
+                    key={`${color}-${index}`}
+                    style={{ background: color }}
+                    title={index === item.preview.length - 1 ? 'Navigation' : undefined}
+                  />
+                ))}
               </span>
               <strong>{item.name}</strong>
               <small>{item.description}</small>
-              {theme === item.id && <b>Selected</b>}
+              {theme === item.id && !draft.enabled && <b>Selected</b>}
             </button>
           ))}
+        </div>
+
+        <div className="alert alert-info suite-theme-note">
+          Selecting a preset turns custom overrides off so the whole application changes together.
+          Your custom values are kept and can be enabled again later.
         </div>
       </section>
 
@@ -90,7 +121,8 @@ export default function UserPreferences({
             <p className="eyebrow">CUSTOM THEME BUILDER</p>
             <h2>Colors, transparency and layout</h2>
             <p className="page-subtitle">
-              These settings apply to this user on this browser/device and do not change another employee's appearance.
+              The navigation automatically darkens the selected navigation base color so menu text
+              and icons remain readable on desktop and mobile.
             </p>
           </div>
           <label className="suite-switch">
@@ -136,7 +168,7 @@ export default function UserPreferences({
           </label>
 
           <label>
-            <span>Glass blur: {draft.glassBlur}px</span>
+            <span>Glass / navigation blur: {draft.glassBlur}px</span>
             <input
               type="range"
               min="0"
@@ -185,16 +217,26 @@ export default function UserPreferences({
         </div>
 
         <div className="suite-theme-preview-panel" aria-hidden="true">
-          <aside style={{ background: draft.sidebarBg }}>
-            <strong style={{ color: '#fff' }}>SB</strong>
-            <i style={{ background: draft.accent }} />
+          <aside style={{ background: previewNavigation }}>
+            <img
+              src={`${import.meta.env.BASE_URL}images/suite/sb-icon-white.png`}
+              alt=""
+              className="suite-theme-preview-logo"
+            />
+            <i style={{ background: draft.enabled ? draft.accent : selected.preview[2] }} />
             <i />
             <i />
           </aside>
-          <main style={{ background: draft.pageBg, color: draft.text }}>
-            <div style={{ background: draft.surface, borderRadius: `${draft.borderRadius}px` }}>
+          <main style={{
+            background: draft.enabled ? draft.pageBg : selected.preview[0],
+            color: draft.enabled ? draft.text : undefined,
+          }}>
+            <div style={{
+              background: draft.enabled ? draft.surface : selected.preview[1],
+              borderRadius: `${draft.borderRadius}px`,
+            }}>
               <b>Live preview</b>
-              <span style={{ background: draft.accent }}>Action</span>
+              <span style={{ background: draft.enabled ? draft.accent : selected.preview[2] }}>Action</span>
             </div>
           </main>
         </div>

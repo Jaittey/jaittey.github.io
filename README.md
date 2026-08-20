@@ -1,21 +1,22 @@
-# Small Business Suite 1.0
+# Small Business Suite 1.0 — Theme, Navigation & Branding Update
 
-Manual upgrade package for the current React/Vite/Supabase Small Business application.
+This package is designed for the current `Jaittey/jaittey.github.io` Small Business Suite 1.0 project.
 
-## Key changes
-- Rebuilt left navigation using the supplied navigation design.
-- Fixed invoice / quotation PDFs, including POS-schema line items.
-- Discount, taxable amount and GST now render correctly.
-- Added Super Admin App Settings with protected test-data cleanup.
-- Retired Firebase Migration UI.
-- Active subscribers default to Dashboard without subscription redirect loops.
-- Company Administrator exclusively configures Adaptive POS.
-- Managers/Users automatically use the Administrator's saved company POS mode.
-- Added custom theme colors, transparency, blur, radius, density and sidebar width.
-- Rebranded to Small Business Suite 1.0.
-- New Service Worker cache key prevents stale v5 UI.
+## Included updates
 
-Start with `STEP_BY_STEP_SUITE_1_0.md`.
+- Theme presets now change the navigation colors too.
+- Navigation always stays in a darker matching shade for readability.
+- Custom theme Navigation Base Color is automatically darkened in the real navigation.
+- Selecting a preset disables custom overrides so the whole app changes together.
+- Added supplied Small Business Suite white/black logo assets.
+- Added supplied navigation icons for Dashboard, Sales & Commerce, Inventory & Operations, Employee Management, Financial Management, Application Manager and Super Admin.
+- Added supplied default User Profile icon.
+- Removed the user name/role text from the bottom of the sidebar; the profile icon remains.
+- Added a separate Paid Stamp upload beside Company Logo, Company Stamp and Manager Signature.
+- Added the supplied Paid Stamp as the built-in default.
+- Invoice/Quotation PDF authorization area treats Company Stamp and Paid Stamp as separate assets.
+- Added compatibility aliases for older PDF code: `public/images/SB_Logo.png` and `public/images/PAID.png`.
 
-Important: this ZIP is a complete **Suite 1.0 upgrade package** for the current repository.
-It intentionally does not overwrite the already-working authentication/employee activation files.
+No Supabase SQL migration is required for this update. `company_assets.asset_id` already stores asset IDs dynamically, so the new `paidStamp` asset uses the existing storage system.
+
+Start with `STEP_BY_STEP_INSTALL.md`.

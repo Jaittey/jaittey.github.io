@@ -11,12 +11,35 @@ const GROUP_LABELS = {
   'super-admin-group': 'Platform',
 };
 
-const iconFor = (value) => {
+const PUBLIC_ASSET = (path) => `${import.meta.env.BASE_URL}${String(path || '').replace(/^\/+/, '')}`;
+
+const NAV_GROUP_ICONS = {
+  dashboard: 'images/navigation/dashboard.png',
+  sales: 'images/navigation/sales-commerce.png',
+  operations: 'images/navigation/inventory-operations.png',
+  hr: 'images/navigation/employee-management.png',
+  'finance-group': 'images/navigation/financial-management.png',
+  'application-manager': 'images/navigation/application-manager.png',
+  'super-admin-group': 'images/navigation/super-admin.png',
+};
+
+const fallbackIconFor = (value) => {
   const icons = {
     '▦': '▦', '▤': '▤', '□': '□', '♙': '♙', '◈': '◈', '⌘': '⚙', '♦': '◆',
   };
   return icons[value] || value || '•';
 };
+
+function NavigationIcon({ group }) {
+  const src = NAV_GROUP_ICONS[group.id];
+  return (
+    <span className="suite-nav-icon" aria-hidden="true">
+      {src
+        ? <img className="suite-nav-icon-image" src={PUBLIC_ASSET(src)} alt="" />
+        : <span>{fallbackIconFor(group.icon)}</span>}
+    </span>
+  );
+}
 
 export default function AppShell({
   page,
@@ -118,6 +141,9 @@ export default function AppShell({
     .join('')
     .toUpperCase();
 
+  const profileImage = user?.photoURL || PUBLIC_ASSET('images/suite/user-profile.png');
+  const suiteLogo = PUBLIC_ASSET('images/suite/sb-icon-white.png');
+
   const navigate = (id) => {
     setPage(id);
     setSearch('');
@@ -141,12 +167,12 @@ export default function AppShell({
     <div className="suite-shell">
       <aside className={`suite-sidebar ${drawerOpen ? 'open' : ''}`} aria-label="Application navigation">
         <div className="suite-brand">
-          <div className={`suite-brand-mark ${companyLogo ? 'has-logo' : ''}`} aria-hidden={!companyLogo}>
-            {companyLogo ? <img src={companyLogo} alt="" /> : <span>SB</span>}
+          <div className="suite-brand-mark suite-brand-mark-product">
+            <img src={suiteLogo} alt="Small Business Suite" />
           </div>
           <div className="suite-brand-copy">
             <strong>Small Business Suite</strong>
-            <small>{businessName || 'Business Workspace'} · 1.0</small>
+            <small>{businessName || 'SB Portal'} · 1.0</small>
           </div>
           <button
             className="suite-mobile-close"
@@ -192,7 +218,7 @@ export default function AppShell({
                     onClick={() => navigate(group.page)}
                     aria-current={page === group.page ? 'page' : undefined}
                   >
-                    <span className="suite-nav-icon">{iconFor(group.icon)}</span>
+                    <NavigationIcon group={group} />
                     <span className="suite-nav-text">{group.label}</span>
                   </button>
                 </div>
@@ -211,7 +237,7 @@ export default function AppShell({
                   aria-expanded={open}
                   onClick={() => toggleGroup(group.id)}
                 >
-                  <span className="suite-nav-icon">{iconFor(group.icon)}</span>
+                  <NavigationIcon group={group} />
                   <span className="suite-nav-text">{group.label}</span>
                   <span className="suite-chevron">›</span>
                 </button>
@@ -236,11 +262,22 @@ export default function AppShell({
         </nav>
 
         <div className="suite-sidebar-footer">
-          <div className="suite-profile-card">
-            <div className="suite-avatar">{initials}</div>
-            <button className="suite-profile-copy" type="button" onClick={() => navigate('preferences')}>
-              <strong>{user?.displayName || 'Account settings'}</strong>
-              <small>{ROLE_LABELS[normalizedRole]}</small>
+          <div className="suite-profile-card suite-profile-card-icon-only">
+            <button
+              className="suite-footer-profile-button"
+              type="button"
+              title={`${ROLE_LABELS[normalizedRole]} profile`}
+              aria-label="Open profile and appearance"
+              onClick={() => navigate('preferences')}
+            >
+              <img
+                src={profileImage}
+                alt=""
+                referrerPolicy={user?.photoURL ? 'no-referrer' : undefined}
+                onError={(event) => {
+                  event.currentTarget.src = PUBLIC_ASSET('images/suite/user-profile.png');
+                }}
+              />
             </button>
             <button
               className="suite-collapse-button"
@@ -369,9 +406,14 @@ export default function AppShell({
                 aria-expanded={profileOpen}
                 onClick={() => setProfileOpen((current) => !current)}
               >
-                {user?.photoURL
-                  ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" />
-                  : <span>{initials}</span>}
+                <img
+                  src={profileImage}
+                  alt=""
+                  referrerPolicy={user?.photoURL ? 'no-referrer' : undefined}
+                  onError={(event) => {
+                    event.currentTarget.src = PUBLIC_ASSET('images/suite/user-profile.png');
+                  }}
+                />
               </button>
 
               {profileOpen && (

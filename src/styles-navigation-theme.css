@@ -1,0 +1,408 @@
+/* ============================================================
+   SMALL BUSINESS SUITE 1.0
+   Complete Theme -> Navigation Integration
+   Load AFTER styles-suite.css.
+   ============================================================ */
+
+:root {
+  --suite-nav-bg: #11142b;
+  --suite-nav-soft: #1c2042;
+  --suite-nav-text: #eef0ff;
+  --suite-nav-muted: #8e92af;
+  --suite-nav-border: rgba(255, 255, 255, .08);
+  --suite-nav-hover: rgba(255, 255, 255, .065);
+  --suite-nav-active: rgba(124, 109, 242, .22);
+  --suite-nav-accent: #8f7cff;
+  --suite-nav-shadow: rgba(0, 0, 0, .24);
+}
+
+/* Every preset gets a matching DARK navigation palette. */
+html[data-theme="royal"] {
+  --suite-nav-bg: #101329;
+  --suite-nav-soft: #1a1f40;
+  --suite-nav-text: #f6f4ff;
+  --suite-nav-muted: #9494b3;
+  --suite-nav-border: rgba(160, 145, 255, .13);
+  --suite-nav-hover: rgba(143, 124, 255, .105);
+  --suite-nav-active: rgba(143, 124, 255, .22);
+  --suite-nav-accent: #8f7cff;
+}
+
+html[data-theme="dark"] {
+  --suite-nav-bg: #070a0e;
+  --suite-nav-soft: #10161b;
+  --suite-nav-text: #effff9;
+  --suite-nav-muted: #82968d;
+  --suite-nav-border: rgba(101, 221, 176, .10);
+  --suite-nav-hover: rgba(101, 221, 176, .08);
+  --suite-nav-active: rgba(101, 221, 176, .15);
+  --suite-nav-accent: #65ddb0;
+}
+
+html[data-theme="light"] {
+  --suite-nav-bg: #121d28;
+  --suite-nav-soft: #1b2a38;
+  --suite-nav-text: #f4fbf8;
+  --suite-nav-muted: #9aabb3;
+  --suite-nav-border: rgba(72, 181, 144, .13);
+  --suite-nav-hover: rgba(72, 181, 144, .09);
+  --suite-nav-active: rgba(43, 143, 110, .18);
+  --suite-nav-accent: #48b590;
+}
+
+html[data-theme="ocean"] {
+  --suite-nav-bg: #04111d;
+  --suite-nav-soft: #092338;
+  --suite-nav-text: #eefbff;
+  --suite-nav-muted: #7f9baa;
+  --suite-nav-border: rgba(69, 199, 232, .13);
+  --suite-nav-hover: rgba(69, 199, 232, .09);
+  --suite-nav-active: rgba(69, 199, 232, .17);
+  --suite-nav-accent: #45c7e8;
+}
+
+html[data-theme="forest"] {
+  --suite-nav-bg: #06100c;
+  --suite-nav-soft: #10261b;
+  --suite-nav-text: #f8fff9;
+  --suite-nav-muted: #8ea096;
+  --suite-nav-border: rgba(215, 181, 90, .14);
+  --suite-nav-hover: rgba(215, 181, 90, .08);
+  --suite-nav-active: rgba(215, 181, 90, .16);
+  --suite-nav-accent: #d7b55a;
+}
+
+html[data-theme="sunset"] {
+  --suite-nav-bg: #170d0c;
+  --suite-nav-soft: #2b1816;
+  --suite-nav-text: #fff5f1;
+  --suite-nav-muted: #aa918a;
+  --suite-nav-border: rgba(255, 154, 98, .14);
+  --suite-nav-hover: rgba(255, 154, 98, .09);
+  --suite-nav-active: rgba(255, 154, 98, .17);
+  --suite-nav-accent: #ff9a62;
+}
+
+/* When custom appearance is enabled App.jsx writes --suite-sidebar-bg
+   inline. This selector derives a DARK navigation from that custom color. */
+html[style*="--suite-sidebar-bg"] {
+  --suite-nav-bg: color-mix(in srgb, var(--suite-sidebar-bg) 38%, #050713 62%);
+  --suite-nav-soft: color-mix(in srgb, var(--suite-sidebar-bg) 54%, #0a0c16 46%);
+  --suite-nav-text: #f7f8ff;
+  --suite-nav-muted: color-mix(in srgb, #ffffff 58%, var(--suite-nav-bg));
+  --suite-nav-border: color-mix(in srgb, var(--suite-accent) 18%, transparent);
+  --suite-nav-hover: color-mix(in srgb, var(--suite-accent) 10%, transparent);
+  --suite-nav-active: color-mix(in srgb, var(--suite-accent) 20%, transparent);
+  --suite-nav-accent: var(--suite-accent);
+}
+
+.suite-sidebar {
+  color: var(--suite-nav-text);
+  background:
+    radial-gradient(
+      circle at 18% 2%,
+      color-mix(in srgb, var(--suite-nav-accent) 22%, transparent),
+      transparent 27rem
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--suite-nav-soft) 86%, transparent),
+      var(--suite-nav-bg) 36%
+    );
+  border-right: 1px solid var(--suite-nav-border);
+  box-shadow: 14px 0 42px var(--suite-nav-shadow);
+  backdrop-filter: blur(var(--suite-glass-blur));
+  -webkit-backdrop-filter: blur(var(--suite-glass-blur));
+}
+
+.suite-brand {
+  border-bottom-color: var(--suite-nav-border);
+}
+
+.suite-brand-mark-product {
+  width: 48px;
+  height: 48px;
+  padding: 2px;
+  border: 1px solid color-mix(in srgb, var(--suite-nav-accent) 28%, transparent);
+  border-radius: 15px;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--suite-nav-accent) 26%, #ffffff),
+      color-mix(in srgb, var(--suite-nav-accent) 74%, #151728)
+    );
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--suite-nav-accent) 28%, transparent);
+}
+
+.suite-brand-mark-product img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: transparent;
+}
+
+.suite-brand-copy strong {
+  color: var(--suite-nav-text);
+}
+
+.suite-brand-copy small,
+.suite-nav-caption {
+  color: var(--suite-nav-muted);
+}
+
+.suite-side-search input {
+  color: var(--suite-nav-text);
+  border-color: var(--suite-nav-border);
+  background: color-mix(in srgb, var(--suite-nav-soft) 72%, transparent);
+}
+
+.suite-side-search input::placeholder {
+  color: var(--suite-nav-muted);
+}
+
+.suite-search-results {
+  border-color: var(--suite-nav-border);
+  background: color-mix(in srgb, var(--suite-nav-soft) 94%, #05060a);
+}
+
+.suite-search-results button {
+  color: var(--suite-nav-text);
+}
+
+.suite-search-results button:hover {
+  background: var(--suite-nav-hover);
+}
+
+.suite-sidebar-nav {
+  scrollbar-color:
+    color-mix(in srgb, var(--suite-nav-accent) 45%, var(--suite-nav-soft))
+    transparent;
+}
+
+.suite-nav-link,
+.suite-submenu-toggle,
+.suite-submenu-link {
+  color: var(--suite-nav-muted);
+}
+
+.suite-nav-link:hover,
+.suite-submenu-toggle:hover,
+.suite-submenu-link:hover {
+  color: var(--suite-nav-text);
+  background: var(--suite-nav-hover);
+}
+
+.suite-nav-link.active {
+  color: var(--suite-nav-text);
+  background:
+    linear-gradient(
+      90deg,
+      var(--suite-nav-active),
+      color-mix(in srgb, var(--suite-nav-active) 40%, transparent)
+    );
+  box-shadow:
+    inset 3px 0 0 var(--suite-nav-accent),
+    0 10px 26px color-mix(in srgb, var(--suite-nav-accent) 8%, transparent);
+}
+
+.suite-nav-group.has-active > .suite-submenu-toggle {
+  color: var(--suite-nav-text);
+}
+
+.suite-submenu-inner {
+  border-left-color: var(--suite-nav-border);
+}
+
+.suite-submenu-link.active {
+  color: var(--suite-nav-text);
+  background: color-mix(in srgb, var(--suite-nav-active) 70%, transparent);
+}
+
+.suite-submenu-link::before {
+  background: color-mix(in srgb, var(--suite-nav-muted) 50%, transparent);
+}
+
+.suite-submenu-link.active::before {
+  background: var(--suite-nav-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--suite-nav-accent) 18%, transparent);
+}
+
+.suite-nav-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.suite-nav-icon-image {
+  display: block;
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+  opacity: .72;
+  transition: opacity 180ms ease, filter 180ms ease, transform 180ms ease;
+}
+
+.suite-nav-link:hover .suite-nav-icon-image,
+.suite-submenu-toggle:hover .suite-nav-icon-image,
+.suite-nav-link.active .suite-nav-icon-image,
+.suite-nav-group.has-active > .suite-submenu-toggle .suite-nav-icon-image {
+  opacity: 1;
+  filter:
+    drop-shadow(
+      0 0 7px
+      color-mix(in srgb, var(--suite-nav-accent) 50%, transparent)
+    );
+}
+
+.suite-nav-link:active .suite-nav-icon-image,
+.suite-submenu-toggle:active .suite-nav-icon-image {
+  transform: scale(.94);
+}
+
+.suite-sidebar-footer {
+  border-top-color: var(--suite-nav-border);
+  background: color-mix(in srgb, var(--suite-nav-bg) 92%, transparent);
+}
+
+.suite-profile-card-icon-only {
+  justify-content: space-between;
+  min-height: 62px;
+  border-color: var(--suite-nav-border);
+  background: color-mix(in srgb, var(--suite-nav-soft) 58%, transparent);
+}
+
+.suite-footer-profile-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--suite-nav-accent) 28%, var(--suite-nav-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--suite-nav-active) 64%, #ffffff 8%);
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.suite-footer-profile-button:hover {
+  border-color: var(--suite-nav-accent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--suite-nav-accent) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+.suite-footer-profile-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.suite-collapse-button {
+  color: var(--suite-nav-muted);
+}
+
+.suite-collapse-button:hover {
+  color: var(--suite-nav-text);
+  background: var(--suite-nav-hover);
+}
+
+.suite-mobile-close {
+  color: var(--suite-nav-text);
+  border: 1px solid var(--suite-nav-border);
+  background: var(--suite-nav-hover);
+}
+
+.suite-overlay {
+  background:
+    color-mix(in srgb, var(--suite-nav-bg) 48%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+/* Profile trigger uses the uploaded/fallback profile image. */
+.suite-profile-trigger img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Theme preview improvements. */
+.theme-preview {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.suite-theme-preview-logo {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  margin-bottom: 10px;
+}
+
+.suite-theme-note {
+  margin-top: 18px;
+}
+
+/* New Paid Stamp card. */
+.asset-preview.paidStamp img,
+.asset-preview.companyStamp img {
+  object-fit: contain;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.asset-default-note {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: .72rem;
+}
+
+/* Compatibility for any old mobile bottom navigation still present. */
+.mobile-bottom-nav,
+.bottom-nav,
+.mobile-tab-bar,
+.app-mobile-nav {
+  color: var(--suite-nav-muted) !important;
+  border-color: var(--suite-nav-border) !important;
+  background:
+    color-mix(in srgb, var(--suite-nav-bg) 94%, transparent) !important;
+  backdrop-filter: blur(var(--suite-glass-blur));
+  -webkit-backdrop-filter: blur(var(--suite-glass-blur));
+}
+
+.mobile-bottom-nav .active,
+.bottom-nav .active,
+.mobile-tab-bar .active,
+.app-mobile-nav .active {
+  color: var(--suite-nav-accent) !important;
+  background: var(--suite-nav-active) !important;
+}
+
+/* Collapsed desktop footer: only icons, no name/role text. */
+body.suite-sidebar-collapsed .suite-profile-card-icon-only {
+  justify-content: center;
+  padding: 7px 4px;
+}
+
+body.suite-sidebar-collapsed .suite-footer-profile-button {
+  width: 42px;
+  height: 42px;
+}
+
+@media (max-width: 900px) {
+  .suite-sidebar {
+    box-shadow: 18px 0 55px color-mix(in srgb, var(--suite-nav-bg) 68%, transparent);
+  }
+
+  .suite-profile-card-icon-only {
+    justify-content: flex-start;
+  }
+
+  .suite-collapse-button {
+    display: none !important;
+  }
+
+  .suite-footer-profile-button {
+    width: 46px;
+    height: 46px;
+  }
+}

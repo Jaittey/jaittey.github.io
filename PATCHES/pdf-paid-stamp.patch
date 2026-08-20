@@ -1,0 +1,9 @@
+--- a/src/services/pdf.js
++++ b/src/services/pdf.js
+@@
+-    // The uploaded Company Stamp is the preferred PAID stamp. Only fall back
+-    // to the bundled PAID.png when the company has not uploaded one.
+-    const stamp = settings.companyStampDataUrl || settings.paidStampDataUrl || await loadPaidStampAsDataUrl();
++    // Paid Stamp is a separate document asset from Company Stamp.
++    // Use the uploaded Paid Stamp first, then the bundled default.
++    const stamp = settings.paidStampDataUrl || await loadPaidStampAsDataUrl();

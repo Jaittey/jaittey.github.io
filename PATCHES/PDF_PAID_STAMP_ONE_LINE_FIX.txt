@@ -1,0 +1,16 @@
+Optional salary-slip compatibility fix for the current repository
+===============================================================
+
+File:
+src/services/pdf.js
+
+Find:
+const stamp = settings.companyStampDataUrl || settings.paidStampDataUrl || await loadPaidStampAsDataUrl();
+
+Replace with:
+const stamp = settings.paidStampDataUrl || await loadPaidStampAsDataUrl();
+
+Why:
+Company Stamp and Paid Stamp are now separate assets. Paid salary slips should use the Paid Stamp, not the Company Stamp.
+
+The main Invoice/Quotation PDF service included in this update is already fixed.

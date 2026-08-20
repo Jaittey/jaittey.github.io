@@ -5,6 +5,7 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import './styles.css';
 import './styles-v5.css';
 import './styles-suite.css';
+import './styles-navigation-theme.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
