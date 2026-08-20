@@ -44,6 +44,7 @@ export default function UserManagement({ users, notify }) {
 
     const role = normalizeRole(record.role);
     const customPermissions = Boolean(record.customPermissions);
+
     setForm({
       ...empty,
       ...record,
@@ -55,11 +56,13 @@ export default function UserManagement({ users, notify }) {
         customPermissions,
       ).filter((permission) => permission !== 'preferences'),
     });
+
     setEditor(record);
   };
 
   const changeRole = (role) => {
     const normalized = normalizeRole(role);
+
     setForm((current) => ({
       ...current,
       role: normalized,
@@ -81,6 +84,7 @@ export default function UserManagement({ users, notify }) {
 
   const setGroup = (pages, enabled) => {
     const pageIds = pages.map(([id]) => id);
+
     setForm((current) => ({
       ...current,
       permissions: enabled
@@ -102,8 +106,15 @@ export default function UserManagement({ users, notify }) {
 
   const save = async () => {
     const email = form.email.trim().toLowerCase();
+    const displayName = form.displayName.trim().replace(/\s+/g, ' ');
+
+    if (!displayName) {
+      notify('Employee name is required.', 'error');
+      return;
+    }
+
     if (!email) {
-      notify('Email is required.', 'error');
+      notify('Employee email is required.', 'error');
       return;
     }
 
@@ -115,7 +126,7 @@ export default function UserManagement({ users, notify }) {
       'userAccess',
       {
         email,
-        displayName: form.displayName.trim(),
+        displayName,
         role: normalizeRole(form.role),
         active: Boolean(form.active),
         notes: form.notes.trim(),
@@ -125,45 +136,57 @@ export default function UserManagement({ users, notify }) {
       email,
     );
 
-    notify(form.id ? 'User permissions updated.' : 'User access created.');
+    notify(
+      form.id
+        ? 'User permissions updated.'
+        : 'Employee added. They can now use Register with this name and email to create their password.',
+    );
+
     setEditor(null);
   };
 
   const remove = async (record) => {
     if (!window.confirm(`Remove all Small Business access for ${record.email}?`)) return;
+
     await deleteRecord('userAccess', record.id);
     notify('User access removed.');
   };
 
   const activeUsers = sorted.filter((record) => record.active !== false).length;
-  const managerCount = sorted.filter((record) => normalizeRole(record.role) === 'manager').length;
-  const customCount = sorted.filter((record) => record.customPermissions === true).length;
+  const managerCount = sorted.filter(
+    (record) => normalizeRole(record.role) === 'manager',
+  ).length;
+  const waitingCount = sorted.filter((record) => !record.userId).length;
 
   return (
     <>
       <section className="access-control-hero panel">
         <div>
           <p className="eyebrow">ADMINISTRATOR ACCESS CONTROL</p>
-          <h2>User roles and module permissions</h2>
-          <p>Authorize accounts, disable access instantly, assign Manager or User roles, and customize the visible modules for individual accounts.</p>
+          <h2>Company users and permissions</h2>
+          <p>
+            Add an employee name and email, assign their role and permissions,
+            then ask them to use Register on the login page to create their own password.
+          </p>
         </div>
+
         <button className="button button-primary" onClick={() => open()}>
-          ＋ Add account
+          ＋ Add employee login
         </button>
       </section>
 
       <section className="access-control-stats">
         <article className="panel">
           <span>●</span>
-          <div><strong>{activeUsers}</strong><small>Active accounts</small></div>
+          <div><strong>{activeUsers}</strong><small>Enabled memberships</small></div>
         </article>
         <article className="panel">
           <span>◆</span>
           <div><strong>{managerCount}</strong><small>Managers</small></div>
         </article>
         <article className="panel">
-          <span>⌘</span>
-          <div><strong>{customCount}</strong><small>Custom permission sets</small></div>
+          <span>◌</span>
+          <div><strong>{waitingCount}</strong><small>Waiting for registration</small></div>
         </article>
       </section>
 
@@ -172,14 +195,21 @@ export default function UserManagement({ users, notify }) {
           <span>◆</span>
           <div>
             <h3>Manager — full operational access</h3>
-            <p>Sales & Billing, CRM, Employee Management, Payroll & Attendance, Financial Management, Inventory & Assets, Reports, Cloud and Notifications.</p>
+            <p>
+              Sales & Billing, CRM, Employee Management, Payroll & Attendance,
+              Financial Management, Inventory & Assets, Reports, Cloud and Notifications.
+            </p>
           </div>
         </article>
+
         <article className="panel">
           <span>◇</span>
           <div>
             <h3>User — standard limited access</h3>
-            <p>Quotations, Invoices, Customers, Inventory, Employee viewing, Attendance entry and read-only Payroll. The Administrator may customize this list.</p>
+            <p>
+              Quotations, Invoices, Customers, Inventory, Employee viewing,
+              Attendance entry and read-only Payroll. The Administrator may customize this list.
+            </p>
           </div>
         </article>
       </section>
@@ -192,25 +222,43 @@ export default function UserManagement({ users, notify }) {
             record.permissions,
             record.customPermissions,
           ).filter((permission) => permission !== 'preferences');
+
           const protectedAdministrator = role === 'administrator';
+          const waitingForRegistration = !record.userId && !protectedAdministrator;
 
           return (
             <article className="panel user-role-card access-user-card" key={record.id}>
               <div className="user-role-avatar">
                 {(record.displayName || record.email || '?').slice(0, 1).toUpperCase()}
               </div>
+
               <div className="user-role-info">
                 <h3>{record.displayName || 'Unnamed user'}</h3>
                 <p>{record.email}</p>
+
                 <div className="access-card-badges">
                   <span className="role-badge">{ROLE_LABELS[role]}</span>
-                  <span className={`status ${record.active === false ? 'status-cancelled' : 'status-paid'}`}>
-                    {record.active === false ? 'DISABLED' : 'ACTIVE'}
-                  </span>
-                  {record.customPermissions && <span className="custom-access-badge">CUSTOM</span>}
+
+                  {record.active === false ? (
+                    <span className="status status-cancelled">DISABLED</span>
+                  ) : waitingForRegistration ? (
+                    <span className="status status-pending">WAITING REGISTRATION</span>
+                  ) : (
+                    <span className="status status-paid">ACTIVE</span>
+                  )}
+
+                  {record.customPermissions && (
+                    <span className="custom-access-badge">CUSTOM</span>
+                  )}
                 </div>
-                <small>{effective.length} operational permission{effective.length === 1 ? '' : 's'}</small>
+
+                <small>
+                  {waitingForRegistration
+                    ? 'Employee has not created a password yet.'
+                    : `${effective.length} operational permission${effective.length === 1 ? '' : 's'}`}
+                </small>
               </div>
+
               <div className="row-actions">
                 {protectedAdministrator ? (
                   <span className="role-badge">PROTECTED COMPANY ADMINISTRATOR</span>
@@ -231,7 +279,7 @@ export default function UserManagement({ users, notify }) {
           <EmptyState
             icon="♚"
             title="No delegated accounts"
-            text="The owner remains the Administrator. Add a Manager or User account here."
+            text="Add an employee or Manager. They will create their own password from the Register tab."
           />
         </section>
       )}
@@ -239,49 +287,68 @@ export default function UserManagement({ users, notify }) {
       {editor && (
         <Modal
           open
-          title={form.id ? 'Manage account access' : 'Add account access'}
+          title={form.id ? 'Manage employee access' : 'Add employee login'}
           onClose={() => setEditor(null)}
         >
           <div className="access-editor">
             <section className="access-editor-identity">
               <div className="form-grid">
                 <label>
-                  <span>Email</span>
+                  <span>Employee name</span>
+                  <input
+                    value={form.displayName}
+                    onChange={(event) => setForm({
+                      ...form,
+                      displayName: event.target.value,
+                    })}
+                  />
+                </label>
+
+                <label>
+                  <span>Employee email</span>
                   <input
                     type="email"
                     value={form.email}
                     disabled={Boolean(form.id)}
-                    onChange={(event) => setForm({ ...form, email: event.target.value })}
+                    onChange={(event) => setForm({
+                      ...form,
+                      email: event.target.value,
+                    })}
                   />
                 </label>
-                <label>
-                  <span>Display name</span>
-                  <input
-                    value={form.displayName}
-                    onChange={(event) => setForm({ ...form, displayName: event.target.value })}
-                  />
-                </label>
+
                 <label>
                   <span>Role</span>
-                  <select value={form.role} onChange={(event) => changeRole(event.target.value)}>
+                  <select
+                    value={form.role}
+                    onChange={(event) => changeRole(event.target.value)}
+                  >
                     <option value="manager">Manager</option>
                     <option value="user">User</option>
                   </select>
                 </label>
+
                 <label className="checkbox-label">
                   <input
                     type="checkbox"
                     checked={Boolean(form.active)}
-                    onChange={(event) => setForm({ ...form, active: event.target.checked })}
+                    onChange={(event) => setForm({
+                      ...form,
+                      active: event.target.checked,
+                    })}
                   />
-                  <span>Account access enabled</span>
+                  <span>Company access enabled</span>
                 </label>
+
                 <label className="form-span-2">
                   <span>Administrator notes</span>
                   <textarea
                     rows="3"
                     value={form.notes}
-                    onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                    onChange={(event) => setForm({
+                      ...form,
+                      notes: event.target.value,
+                    })}
                   />
                 </label>
               </div>
@@ -291,13 +358,18 @@ export default function UserManagement({ users, notify }) {
               <div className="permission-control-heading">
                 <div>
                   <p className="eyebrow">MODULE PERMISSIONS</p>
-                  <h3>{form.role === 'manager' ? 'Full Manager permissions' : 'User permissions'}</h3>
+                  <h3>
+                    {form.role === 'manager'
+                      ? 'Full Manager permissions'
+                      : 'User permissions'}
+                  </h3>
                   <p>
                     {form.role === 'manager'
-                      ? 'Managers receive the complete operational workspace allowed by the company subscription by default. Enable customization only when this specific Manager must be restricted.'
+                      ? 'Managers receive the complete operational workspace allowed by the company subscription by default. Enable customization only when this Manager must be restricted.'
                       : 'Users receive the standard limited workspace by default. Enable customization to add or remove individual modules.'}
                   </p>
                 </div>
+
                 <label className="permission-custom-toggle">
                   <input
                     type="checkbox"
@@ -325,12 +397,16 @@ export default function UserManagement({ users, notify }) {
                           <h4>{group.label}</h4>
                           <p>{group.description}</p>
                         </div>
+
                         <label>
                           <input
                             type="checkbox"
                             checked={allSelected}
                             disabled={!form.customPermissions}
-                            onChange={(event) => setGroup(group.pages, event.target.checked)}
+                            onChange={(event) => setGroup(
+                              group.pages,
+                              event.target.checked,
+                            )}
                           />
                           <span>All</span>
                         </label>
@@ -363,18 +439,31 @@ export default function UserManagement({ users, notify }) {
                 >
                   Restore {form.role === 'manager' ? 'Full Manager' : 'Standard User'} Access
                 </button>
-                <span>Settings → Themes remains available to every authorized account.</span>
+
+                <span>
+                  Settings → Themes remains available to every authorized account.
+                </span>
               </div>
             </section>
           </div>
 
           <div className="alert alert-info">
-            Permission changes apply to logged-in users automatically. Passwords remain private in Supabase Auth.
+            {form.userId
+              ? 'This employee login is already activated. Permission changes apply automatically.'
+              : 'After saving, give the employee the exact name and email shown here. The employee opens Login → Register, enters those details, creates a password, then uses Email sign in.'}
           </div>
 
           <footer className="modal-actions">
-            <button className="button button-ghost" onClick={() => setEditor(null)}>Cancel</button>
-            <button className="button button-primary" onClick={save}>Save access & permissions</button>
+            <button
+              className="button button-ghost"
+              onClick={() => setEditor(null)}
+            >
+              Cancel
+            </button>
+
+            <button className="button button-primary" onClick={save}>
+              {form.id ? 'Save permissions' : 'Add employee'}
+            </button>
           </footer>
         </Modal>
       )}

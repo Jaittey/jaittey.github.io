@@ -1,0 +1,6 @@
+# Small Business v4.2
+# Public employee activation endpoint.
+# The function performs its own invitation checks and rate limiting.
+
+[functions.activate-company-user]
+verify_jwt = false

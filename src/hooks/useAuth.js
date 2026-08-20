@@ -2,22 +2,52 @@ import { useEffect, useState } from 'react';
 import { supabase, SUPER_ADMIN_EMAIL } from '../config/supabase';
 
 const lower = (value = '') => String(value || '').trim().toLowerCase();
+
 const normalizeEmail = (value = '') => lower(value)
   .normalize('NFKC')
   .replace(/[\s\u200B-\u200D\u2060\uFEFF]+/g, '');
+
+const normalizeName = (value = '') => String(value || '')
+  .trim()
+  .replace(/\s+/g, ' ');
+
 const validEmail = (value = '') => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
 
 const friendlyAuthError = (reason, fallback) => {
-  const message = String(reason?.message || '');
+  const message = String(reason?.message || reason || '');
+
   if (/invalid.*email|email.*invalid/i.test(message)) {
     return 'Enter a valid email address. Spaces are removed automatically.';
   }
-  if (/already registered|already exists|user already/i.test(message)) {
-    return 'An account already uses this email. Choose Email sign in instead.';
+
+  if (/invalid login credentials/i.test(message)) {
+    return 'Invalid email or password.';
   }
-  if (/password/i.test(message) && /weak|short|least/i.test(message)) {
-    return 'Use a password with at least 6 characters.';
+
+  if (/already activated|already.*registered|already exists|user already/i.test(message)) {
+    return 'This employee account is already activated. Use Email sign in instead.';
   }
+
+  if (/not.*added|not.*invited|no pending|company administrator/i.test(message)) {
+    return 'This email has not been added by a company Administrator. Ask your Administrator to add you first.';
+  }
+
+  if (/name.*match|provided name/i.test(message)) {
+    return 'The name does not match the name provided by your company Administrator.';
+  }
+
+  if (/password/i.test(message) && /weak|short|least|8/i.test(message)) {
+    return 'Use a password with at least 8 characters.';
+  }
+
+  if (/rate limit|too many/i.test(message)) {
+    return 'Too many registration attempts. Please wait a few minutes and try again.';
+  }
+
+  if (/function.*not found|failed to send|edge function/i.test(message)) {
+    return 'Employee registration service is not available yet. Ask the Administrator to contact support.';
+  }
+
   return message || fallback;
 };
 
@@ -36,6 +66,7 @@ async function ensurePlatformProfile(user) {
   if (!user?.id || !user?.email) return;
 
   const normalized = normalizeUser(user);
+
   const { error } = await supabase
     .from('platform_users')
     .upsert({
@@ -50,7 +81,8 @@ async function ensurePlatformProfile(user) {
 
   if (error) throw error;
 
-  // Safely attaches a pre-created email membership to this Supabase Auth user.
+  // Backward compatibility: if an older pending membership exists for the same
+  // email, this existing RPC can attach it after login.
   const { error: claimError } = await supabase.rpc('sb_claim_membership');
   if (claimError && !String(claimError.message || '').includes('does not exist')) {
     throw claimError;
@@ -63,6 +95,7 @@ async function getPlatformProfile(userId) {
     .select('*')
     .eq('id', userId)
     .maybeSingle();
+
   if (error) throw error;
   return data || null;
 }
@@ -95,6 +128,7 @@ export function useAuth() {
       }
 
       setLoading(true);
+
       try {
         await ensurePlatformProfile(rawUser);
         const profile = await getPlatformProfile(rawUser.id);
@@ -117,7 +151,9 @@ export function useAuth() {
         }
 
         if (cancelled || generation !== sessionGeneration) return;
+
         const uniqueTopic = `sb-platform-profile-${rawUser.id}-${generation}-${Date.now()}`;
+
         profileChannel = supabase
           .channel(uniqueTopic)
           .on(
@@ -148,7 +184,6 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data }) => applySession(data.session));
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Avoid doing database work synchronously inside the auth callback.
       setTimeout(() => applySession(session), 0);
     });
 
@@ -161,12 +196,15 @@ export function useAuth() {
 
   const loginGoogle = async () => {
     setError('');
+
     try {
       const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL || '/'}`;
+
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo },
       });
+
       if (authError) throw authError;
     } catch (reason) {
       setError(reason?.message || 'Google sign-in failed.');
@@ -175,13 +213,16 @@ export function useAuth() {
 
   const loginEmail = async (email, password) => {
     setError('');
+
     try {
       const normalizedEmail = normalizeEmail(email);
       if (!validEmail(normalizedEmail)) throw new Error('Invalid email address.');
+
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
+
       if (authError) throw authError;
       return { ok: true, email: normalizedEmail };
     } catch (reason) {
@@ -191,33 +232,44 @@ export function useAuth() {
     }
   };
 
+  // IMPORTANT:
+  // Register is no longer public Supabase signUp.
+  // It activates a membership pre-created by the company Administrator.
   const registerEmail = async (email, password, displayName) => {
     setError('');
+
     try {
       const normalizedEmail = normalizeEmail(email);
-      const normalizedName = String(displayName || '').trim().replace(/\s+/g, ' ');
-      if (!normalizedName) throw new Error('Enter your display name.');
-      if (!validEmail(normalizedEmail)) throw new Error('Invalid email address.');
-      if (String(password || '').length < 6) throw new Error('Password must contain at least 6 characters.');
+      const normalizedName = normalizeName(displayName);
 
-      const { data, error: authError } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          data: {
-            full_name: normalizedName,
+      if (!normalizedName) throw new Error('Enter the name provided by your company Administrator.');
+      if (!validEmail(normalizedEmail)) throw new Error('Invalid email address.');
+      if (String(password || '').length < 8) {
+        throw new Error('Password must contain at least 8 characters.');
+      }
+
+      const { data, error: invokeError } = await supabase.functions.invoke(
+        'activate-company-user',
+        {
+          body: {
+            email: normalizedEmail,
+            displayName: normalizedName,
+            password,
           },
-          emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL || '/'}`,
         },
-      });
-      if (authError) throw authError;
+      );
+
+      if (invokeError) throw invokeError;
+      if (!data?.ok) throw new Error(data?.error || 'Employee registration failed.');
+
       return {
         ok: true,
         email: normalizedEmail,
-        confirmationRequired: !data?.session,
+        confirmationRequired: false,
+        businessCount: Number(data.businessCount || 1),
       };
     } catch (reason) {
-      const message = friendlyAuthError(reason, 'Account registration failed.');
+      const message = friendlyAuthError(reason, 'Employee registration failed.');
       setError(message);
       return { ok: false, error: message };
     }
