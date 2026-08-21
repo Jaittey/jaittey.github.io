@@ -1,7 +1,7 @@
 /* ============================================================
    SMALL BUSINESS SUITE 1.0
-   Complete Theme -> Navigation Integration
-   Load AFTER styles-suite.css.
+   Theme + Navigation Hotfix
+   Replaces src/styles-navigation-theme.css
    ============================================================ */
 
 :root {
@@ -16,18 +16,50 @@
   --suite-nav-shadow: rgba(0, 0, 0, .24);
 }
 
-/* Every preset gets a matching DARK navigation palette. */
+/* ROYAL: workspace and navigation now use the same navy + gold family. */
 html[data-theme="royal"] {
-  --suite-nav-bg: #101329;
-  --suite-nav-soft: #1a1f40;
-  --suite-nav-text: #f6f4ff;
-  --suite-nav-muted: #9494b3;
-  --suite-nav-border: rgba(160, 145, 255, .13);
-  --suite-nav-hover: rgba(143, 124, 255, .105);
-  --suite-nav-active: rgba(143, 124, 255, .22);
-  --suite-nav-accent: #8f7cff;
+  color: #f7f4ed;
+  background: #07111f;
+
+  --bg: #07111f;
+  --bg-rgb: 7, 17, 31;
+  --text: #f7f4ed;
+  --panel: rgba(255, 255, 255, .045);
+  --panel-strong: rgba(255, 255, 255, .075);
+  --surface: #101d30;
+  --input: #132239;
+  --border: rgba(216, 184, 94, .16);
+  --muted: rgba(247, 244, 237, .62);
+  --soft: rgba(247, 244, 237, .40);
+  --accent: #d8b85e;
+  --accent-2: #b58d2f;
+  --warning: #e6c45e;
+  --shadow: 0 24px 70px rgba(0, 0, 0, .34);
+
+  --suite-page-bg: #07111f;
+  --suite-surface: #101d30;
+  --suite-text: #f7f4ed;
+  --suite-accent: #d8b85e;
+  --suite-accent-2: #b58d2f;
+
+  --suite-nav-bg: #08101d;
+  --suite-nav-soft: #101c2f;
+  --suite-nav-text: #faf7ef;
+  --suite-nav-muted: #a9adba;
+  --suite-nav-border: rgba(216, 184, 94, .15);
+  --suite-nav-hover: rgba(216, 184, 94, .085);
+  --suite-nav-active: rgba(216, 184, 94, .17);
+  --suite-nav-accent: #d8b85e;
 }
 
+html[data-theme="royal"] body {
+  background:
+    radial-gradient(circle at 14% 4%, rgba(216, 184, 94, .09), transparent 35%),
+    radial-gradient(circle at 88% 88%, rgba(71, 107, 166, .10), transparent 32%),
+    var(--bg);
+}
+
+/* Other existing presets keep their matching dark navigation palettes. */
 html[data-theme="dark"] {
   --suite-nav-bg: #070a0e;
   --suite-nav-soft: #10161b;
@@ -83,8 +115,7 @@ html[data-theme="sunset"] {
   --suite-nav-accent: #ff9a62;
 }
 
-/* When custom appearance is enabled App.jsx writes --suite-sidebar-bg
-   inline. This selector derives a DARK navigation from that custom color. */
+/* Custom appearance still darkens the chosen sidebar base. */
 html[style*="--suite-sidebar-bg"] {
   --suite-nav-bg: color-mix(in srgb, var(--suite-sidebar-bg) 38%, #050713 62%);
   --suite-nav-soft: color-mix(in srgb, var(--suite-sidebar-bg) 54%, #0a0c16 46%);
@@ -227,17 +258,18 @@ html[style*="--suite-sidebar-bg"] {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--suite-nav-accent) 18%, transparent);
 }
 
+/* Slightly larger icons, including collapsed mode. */
 .suite-nav-icon {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
 }
 
 .suite-nav-icon-image {
   display: block;
-  width: 21px;
-  height: 21px;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
-  opacity: .72;
+  opacity: .80;
   transition: opacity 180ms ease, filter 180ms ease, transform 180ms ease;
 }
 
@@ -263,15 +295,15 @@ html[style*="--suite-sidebar-bg"] {
   background: color-mix(in srgb, var(--suite-nav-bg) 92%, transparent);
 }
 
-.suite-profile-card-icon-only {
-  justify-content: space-between;
-  min-height: 62px;
+/* Restore the user name + role at the bottom, as before. */
+.suite-profile-card {
   border-color: var(--suite-nav-border);
   background: color-mix(in srgb, var(--suite-nav-soft) 58%, transparent);
 }
 
 .suite-footer-profile-button {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
   width: 44px;
   height: 44px;
@@ -296,6 +328,14 @@ html[style*="--suite-sidebar-bg"] {
   object-fit: cover;
 }
 
+.suite-profile-copy strong {
+  color: var(--suite-nav-text);
+}
+
+.suite-profile-copy small {
+  color: var(--suite-nav-muted);
+}
+
 .suite-collapse-button {
   color: var(--suite-nav-muted);
 }
@@ -312,20 +352,17 @@ html[style*="--suite-sidebar-bg"] {
 }
 
 .suite-overlay {
-  background:
-    color-mix(in srgb, var(--suite-nav-bg) 48%, transparent);
+  background: color-mix(in srgb, var(--suite-nav-bg) 48%, transparent);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
 }
 
-/* Profile trigger uses the uploaded/fallback profile image. */
 .suite-profile-trigger img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* Theme preview improvements. */
 .theme-preview {
   grid-template-columns: repeat(4, 1fr);
 }
@@ -341,7 +378,6 @@ html[style*="--suite-sidebar-bg"] {
   margin-top: 18px;
 }
 
-/* New Paid Stamp card. */
 .asset-preview.paidStamp img,
 .asset-preview.companyStamp img {
   object-fit: contain;
@@ -356,7 +392,6 @@ html[style*="--suite-sidebar-bg"] {
   font-size: .72rem;
 }
 
-/* Compatibility for any old mobile bottom navigation still present. */
 .mobile-bottom-nav,
 .bottom-nav,
 .mobile-tab-bar,
@@ -377,8 +412,8 @@ html[style*="--suite-sidebar-bg"] {
   background: var(--suite-nav-active) !important;
 }
 
-/* Collapsed desktop footer: only icons, no name/role text. */
-body.suite-sidebar-collapsed .suite-profile-card-icon-only {
+/* Collapsed desktop keeps only the profile picture and hides the name/role. */
+body.suite-sidebar-collapsed .suite-profile-card {
   justify-content: center;
   padding: 7px 4px;
 }
@@ -393,7 +428,7 @@ body.suite-sidebar-collapsed .suite-footer-profile-button {
     box-shadow: 18px 0 55px color-mix(in srgb, var(--suite-nav-bg) 68%, transparent);
   }
 
-  .suite-profile-card-icon-only {
+  .suite-profile-card {
     justify-content: flex-start;
   }
 

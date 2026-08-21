@@ -1,50 +1,6 @@
--- ============================================================
--- SMALL BUSINESS SUITE 1.0
--- Super Admin App Settings + safer test-data cleanup
---
--- HOTFIX 2026-08-20:
--- All full-table DELETE statements now include WHERE TRUE.
--- This fixes Supabase/pg-safeupdate error:
---   DELETE requires a WHERE clause
--- ============================================================
-
-create or replace function public.sb_super_admin_test_data_summary()
-returns jsonb
-language plpgsql
-stable
-security definer
-set search_path = public
-as $$
-declare
-  v_records bigint := 0;
-  v_businesses bigint := 0;
-  v_memberships bigint := 0;
-  v_transactions bigint := 0;
-begin
-  if not public.sb_is_super_admin() then
-    raise exception 'Super Admin access required.';
-  end if;
-
-  select count(*) into v_records from public.business_records;
-  select count(*) into v_businesses from public.businesses;
-  select count(*) into v_memberships from public.business_memberships;
-  select
-    (select count(*) from public.subscription_requests)
-    + (select count(*) from public.subscription_payments)
-  into v_transactions;
-
-  return jsonb_build_object(
-    'businessRecords', v_records,
-    'businesses', v_businesses,
-    'memberships', v_memberships,
-    'subscriptionTransactions', v_transactions
-  );
-end;
-$$;
-
-revoke all on function public.sb_super_admin_test_data_summary() from public;
-grant execute on function public.sb_super_admin_test_data_summary() to authenticated;
-
+-- Small Business Suite 1.0
+-- Standalone test-data deletion hotfix.
+-- Safe to run after Suite 1.0 is already installed.
 
 create or replace function public.sb_super_admin_clear_test_data(
   p_scope text,
@@ -145,26 +101,3 @@ $$;
 
 revoke all on function public.sb_super_admin_clear_test_data(text,text) from public;
 grant execute on function public.sb_super_admin_clear_test_data(text,text) to authenticated;
-
-do $$
-declare
-  fn regprocedure;
-begin
-  for fn in
-    select p.oid::regprocedure
-    from pg_proc p
-    join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public'
-      and p.proname = any(array[
-        'sb_adjust_stock_v5',
-        'sb_complete_pos_sale_v5',
-        'sb_receive_purchase_order_v5',
-        'sb_fulfill_marketplace_order_v5',
-        'sb_v5_update_product_stock'
-      ])
-  loop
-    execute format('revoke execute on function %s from anon', fn);
-    execute format('grant execute on function %s to authenticated', fn);
-  end loop;
-end;
-$$;

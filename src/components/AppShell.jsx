@@ -141,6 +141,7 @@ export default function AppShell({
     .join('')
     .toUpperCase();
 
+  const displayName = user?.displayName || user?.email?.split('@')?.[0] || 'SB User';
   const profileImage = user?.photoURL || PUBLIC_ASSET('images/suite/user-profile.png');
   const suiteLogo = PUBLIC_ASSET('images/suite/sb-icon-white.png');
 
@@ -262,7 +263,7 @@ export default function AppShell({
         </nav>
 
         <div className="suite-sidebar-footer">
-          <div className="suite-profile-card suite-profile-card-icon-only">
+          <div className="suite-profile-card">
             <button
               className="suite-footer-profile-button"
               type="button"
@@ -279,6 +280,17 @@ export default function AppShell({
                 }}
               />
             </button>
+
+            <button
+              className="suite-profile-copy"
+              type="button"
+              title="Open profile and appearance"
+              onClick={() => navigate('preferences')}
+            >
+              <strong>{displayName}</strong>
+              <small>{ROLE_LABELS[normalizedRole]}</small>
+            </button>
+
             <button
               className="suite-collapse-button"
               type="button"
@@ -406,20 +418,24 @@ export default function AppShell({
                 aria-expanded={profileOpen}
                 onClick={() => setProfileOpen((current) => !current)}
               >
-                <img
-                  src={profileImage}
-                  alt=""
-                  referrerPolicy={user?.photoURL ? 'no-referrer' : undefined}
-                  onError={(event) => {
-                    event.currentTarget.src = PUBLIC_ASSET('images/suite/user-profile.png');
-                  }}
-                />
+                {user?.photoURL
+                  ? (
+                    <img
+                      src={profileImage}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      onError={(event) => {
+                        event.currentTarget.src = PUBLIC_ASSET('images/suite/user-profile.png');
+                      }}
+                    />
+                  )
+                  : <span>{initials}</span>}
               </button>
 
               {profileOpen && (
                 <div className="suite-profile-dropdown">
                   <div className="suite-profile-heading">
-                    <strong>{user?.displayName || 'SB User'}</strong>
+                    <strong>{displayName}</strong>
                     <span>{user?.email}</span>
                     <small>{ROLE_LABELS[normalizedRole]}</small>
                   </div>

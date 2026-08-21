@@ -1,200 +1,135 @@
-# Small Business Suite 1.0 — Step-by-Step Installation
+# Small Business Suite 1.0 — Hotfix Installation
 
-## 1. Back up the working project
+This update fixes the four reported issues:
 
-Before replacing anything:
+1. Restores the signed-in user's name and role at the bottom of the navigation.
+2. Makes the main navigation icons slightly larger.
+3. Makes the Royal theme use one matching navy + gold palette across the dashboard and navigation.
+4. Fixes Super Admin → App Settings → Delete Test Data error:
+   `DELETE requires a WHERE clause`.
 
-1. Open GitHub.
-2. Open `Jaittey/jaittey.github.io`.
-3. Download the current repository ZIP and keep it as a backup.
+## Important
+The Supabase database function has already been hotfixed on the connected **Small Business App** Supabase project.
+The SQL files are included so your GitHub project and future installations contain the same fix.
 
-## 2. Extract this update ZIP
+## Step 1 — Back up your GitHub repository
+Open:
+`Jaittey/jaittey.github.io`
 
-Open the update ZIP and keep the folder structure exactly as supplied.
+Download a ZIP or keep a copy before replacing files.
 
-## 3. Upload / replace these files in GitHub
-
-Replace:
+## Step 2 — Replace these frontend files
+Copy these files from this package into the same locations in GitHub:
 
 - `src/components/AppShell.jsx`
 - `src/config/themes.js`
-- `src/pages/UserPreferences.jsx`
-- `src/pages/Settings.jsx`
-- `src/hooks/useCompanyAssets.js`
-- `src/services/businessPdf.js`
-- `src/main.jsx`
-- `public/icon.png`
-- `public/images/SB_Logo.png`
-- `public/images/PAID.png`
-
-Add:
-
 - `src/styles-navigation-theme.css`
-- `public/images/suite/sb-icon-black.png`
-- `public/images/suite/sb-icon-white.png`
-- `public/images/suite/user-profile.png`
-- `public/images/navigation/dashboard.png`
-- `public/images/navigation/sales-commerce.png`
-- `public/images/navigation/inventory-operations.png`
-- `public/images/navigation/employee-management.png`
-- `public/images/navigation/financial-management.png`
-- `public/images/navigation/application-manager.png`
-- `public/images/navigation/super-admin.png`
-- `public/images/documents/paid-stamp.png`
 
-Do not delete your working Supabase configuration, authentication files, employee activation function, or GitHub Actions workflow.
+Choose **Replace / overwrite** when prompted.
 
-## 4. Salary Slip Paid Stamp compatibility
+## Step 3 — Replace the Suite SQL file
+Replace:
 
-Your current `src/services/pdf.js` already knows about `paidStampDataUrl`, but one old line still gives Company Stamp priority.
+- `backend/sb_suite_1_0_upgrade.sql`
 
+with the version inside this package.
+
+This keeps the repository's Suite 1.0 database setup correct for future deployments.
+
+## Step 4 — Supabase hotfix
+The connected Supabase project has already received this database fix.
+
+If you ever install this package on another Supabase project:
+
+1. Open Supabase.
+2. Open **SQL Editor**.
+3. Open:
+   `backend/sb_suite_1_0_delete_test_data_hotfix.sql`
+4. Copy all SQL.
+5. Paste it into SQL Editor.
+6. Click **Run**.
+
+## Step 5 — Commit the frontend update
+In GitHub, use a commit message such as:
+
+`Suite 1.0 navigation royal theme and cleanup hotfix`
+
+Commit to `main`.
+
+## Step 6 — Wait for GitHub Pages
 Open:
 
-`src/services/pdf.js`
-
-Find:
-
-`const stamp = settings.companyStampDataUrl || settings.paidStampDataUrl || await loadPaidStampAsDataUrl();`
-
-Replace it with:
-
-`const stamp = settings.paidStampDataUrl || await loadPaidStampAsDataUrl();`
-
-The same change is included as:
-
-`PATCHES/pdf-paid-stamp.patch`
-
-This keeps Company Stamp and Paid Stamp separate on salary documents too.
-
-## 5. Commit the changes
-
-Commit everything to `main`.
-
-Example commit message:
-
-`Update Suite themes, navigation icons and paid stamp`
-
-## 6. Wait for GitHub Pages
-
-Open:
-
-GitHub → Actions → Deploy Small Business to GitHub Pages
+**GitHub → Actions → Deploy Small Business to GitHub Pages**
 
 Wait until both are green:
 
 - Build ✅
 - Deploy ✅
 
-You normally do not need to run the workflow manually if the push already started it.
+## Step 7 — Hard refresh
+Desktop:
+- Windows: `Ctrl + F5`
 
-## 7. Clear old cached UI
+iPhone:
+- Close the web page/tab.
+- Reopen `https://jaittey.github.io/`
+- If necessary clear website data/cache for the site.
 
-Open the live site and press:
+## Step 8 — Test the navigation
+Confirm:
 
-`Ctrl + Shift + R`
+- User name appears beside the profile picture at the bottom.
+- User role appears below the name.
+- Collapse mode still hides the name and shows only the profile picture.
+- Navigation icons are visibly larger.
+- Mobile navigation still opens and closes normally.
 
-On iPhone/Safari, close the tab and reopen it. If the old navigation still appears, clear the website data/cache once.
+## Step 9 — Test Royal theme
+Go to:
 
-## 8. Test themes
-
-Open:
-
-Application Manager → User Preferences / Themes
-
-Test all presets:
-
-- Royal
-- Dark
-- Light
-- Ocean
-- Forest
-- Sunset
-
-Confirm that each preset changes:
-
-- Page background
-- Cards
-- Buttons / accents
-- Navigation background
-- Navigation active item
-- Navigation hover color
-- Navigation border
-- Navigation icon glow
-
-The navigation should always remain dark even with the Light theme.
-
-## 9. Test custom appearance
-
-Enable Custom Appearance and change:
-
-- Primary Accent
-- Secondary Accent
-- Navigation Base Color
-- Page Background
-- Card / Surface
-- Primary Text
-- Surface Transparency
-- Glass / Navigation Blur
-- Card Radius
-- Sidebar Width
-- Density
-
-The actual navigation automatically darkens the selected Navigation Base Color.
-
-## 10. Test navigation icons
-
-Confirm the supplied icons appear for:
-
-- Main Dashboard
-- Sales & Commerce
-- Inventory & Operations
-- Employee Management
-- Financial Management
-- Application Manager
-- Super Admin
-
-Collapse the sidebar. Only the logo/icons should remain visible.
-
-## 11. Test bottom navigation profile
-
-The bottom sidebar area should no longer show the user's name or role.
-
-It should show only:
-
-- User/Profile icon
-- Collapse arrow on desktop
-
-The normal top-right profile dropdown still contains account information and Sign out.
-
-## 12. Add document assets
-
-Open:
-
-Administration → Logo, Stamps & Signature
-
-You should now see four items:
-
-1. Company Logo
-2. Company Stamp
-3. Manager Signature
-4. Paid Stamp
-
-The supplied Paid Stamp is shown as the default until the Administrator uploads another one.
-
-## 13. Test PDF output
-
-Create an Invoice and mark it PAID.
+**Application Manager → User Preferences / Themes → Royal**
 
 Confirm:
 
-- Company Logo is visible.
-- Company Stamp and Paid Stamp are treated as separate images.
-- Manager Signature is visible when uploaded.
-- Paid Stamp does not cover totals or Terms & Conditions.
-- Discount and GST remain visible.
+- Dashboard background is deep navy.
+- Cards use matching navy surfaces.
+- Gold is used as the accent.
+- Navigation is a darker matching navy.
+- Navigation active state uses gold.
 
-Also test a paid Salary Slip after applying Step 4.
+If custom appearance was previously enabled, selecting a preset should turn the custom override off.
 
-## No database migration required
+## Step 10 — Test Delete Test Data
+Go to:
 
-This update does not require a new SQL migration.
+**Super Admin → App Settings**
+
+Choose the desired scope.
+
+For the full test cleanup choose:
+
+**All application test transactions**
+
+Then type exactly:
+
+`DELETE ALL TEST DATA`
+
+Click:
+
+**Delete selected test data**
+
+The previous `DELETE requires a WHERE clause` error should no longer appear.
+
+## What is preserved during full test cleanup
+The cleanup intentionally preserves:
+
+- Supabase Auth users
+- Platform users
+- Businesses
+- Business memberships
+- Business subscriptions
+- Platform plans
+- Platform bank accounts
+- Custom offers
+
+This prevents the application from losing its login/company/subscription structure.

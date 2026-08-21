@@ -2,9 +2,9 @@ export const THEMES = [
   {
     id: 'royal',
     name: 'Royal',
-    description: 'Deep navy, refined gold and cool violet navigation.',
-    preview: ['#070d19', '#101a2c', '#d8b85e', '#11142b'],
-    navigation: '#11142b',
+    description: 'Deep navy workspace with refined gold accents and matching dark navigation.',
+    preview: ['#07111f', '#101d30', '#d8b85e', '#08101d'],
+    navigation: '#08101d',
   },
   {
     id: 'dark',
